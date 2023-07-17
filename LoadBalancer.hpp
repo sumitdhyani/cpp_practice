@@ -153,7 +153,7 @@ private:
             return;
         }
 
-        std::vector<std::tuple<size_t, const ListenerFunctions&>> siblingsToShareOrphannedPartitions;
+        std::vector<size_t> siblingsToShareOrphannedPartitions;
 
         {
             size_t remainingOrphannedPartitions = numOrphannedPartitions;
@@ -163,7 +163,7 @@ private:
                 std::for_each(currDensitySet.begin(), 
                             std::next(currDensitySet.begin(), std::min(remainingOrphannedPartitions, currDensitySet.size())),
                             [this, &siblingsToShareOrphannedPartitions, &remainingOrphannedPartitions](size_t listenerId) {
-                                siblingsToShareOrphannedPartitions.push_back({listenerId, m_listenerIdToListener[listenerId]});
+                                siblingsToShareOrphannedPartitions.push_back(listenerId);
                                 --remainingOrphannedPartitions;                
                             });
             }
@@ -173,10 +173,13 @@ private:
             size_t currSiblingIndex = 0;
             for (auto it = orphannedPartitions.begin(); it != orphannedPartitions.end(); ++it) {
                 size_t currReassignedPartition = *it;
-                const auto& [listenerId, listenerFuncs] = siblingsToShareOrphannedPartitions[currSiblingIndex];
-                for (const auto& key : m_activeKeys[currReassignedPartition]) {
-                    const auto& [yinFunc, yangFunc] = listenerFuncs;
-                    yinFunc(m_yinFromKey(key));
+                const auto& listenerId = siblingsToShareOrphannedPartitions[currSiblingIndex];
+
+                {
+                    const auto& [yinFunc, yangFunc] = m_listenerIdToListener[listenerId];
+                    for (const auto& key : m_activeKeys[currReassignedPartition]) {
+                        yinFunc(m_yinFromKey(key));
+                    }
                 }
                 
                 size_t numPreviouslyHandledPartitionsbyThisListener = m_listenerIdToPartitions[listenerId].size();
