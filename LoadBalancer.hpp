@@ -91,7 +91,7 @@ struct Loadbalancer {
             --numPartitionsToBeReassigned)
         {
             auto currDensityIterator = m_partitionDensityBook.begin();
-            size_t currDensity = currDensityIterator->first;
+            const size_t& currDensity = currDensityIterator->first;
             auto& listenersWithHighestDensity = currDensityIterator->second;
             size_t listenerIdToBeSnatchedFrom = *listenersWithHighestDensity.begin();
             ++listenerIdToNumPartitionsToBeSnatched[listenerIdToBeSnatchedFrom];
@@ -180,7 +180,7 @@ struct Loadbalancer {
             return false;
         } else {
             auto transferPartitionsToSiblingListeners = [this](const size_t& listenerIdToBeRemoved) {
-                std::set<size_t> orphannedPartitions(std::move(m_listenerIdToPartitions[listenerIdToBeRemoved]));
+                std::unordered_set<size_t> orphannedPartitions(std::move(m_listenerIdToPartitions[listenerIdToBeRemoved]));
                 m_listenerIdToListener.erase(listenerIdToBeRemoved);
                 m_listenerIdToPartitions.erase(listenerIdToBeRemoved);
                 const auto it = m_partitionDensityBook.find(orphannedPartitions.size());
