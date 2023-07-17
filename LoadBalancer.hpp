@@ -84,7 +84,7 @@ struct Loadbalancer {
         }
 
         m_listenerIdToListener[listenerId] = listenerFunctions;
-        std::unordered_map<size_t, size_t> listenerIdToNumPartitionsToBeSnatched;
+        std::unordered_map<size_t, size_t> listenerIdToNumReassignedPartitions;
 
         for (size_t numPartitionsToBeReassigned = m_numPartitions / m_listenerIdToListener.size();
             numPartitionsToBeReassigned > 0;
@@ -94,7 +94,7 @@ struct Loadbalancer {
             const size_t& currDensity = currDensityIterator->first;
             auto& listenersWithHighestDensity = currDensityIterator->second;
             size_t listenerIdToBeSnatchedFrom = *listenersWithHighestDensity.begin();
-            ++listenerIdToNumPartitionsToBeSnatched[listenerIdToBeSnatchedFrom];
+            ++listenerIdToNumReassignedPartitions[listenerIdToBeSnatchedFrom];
             listenersWithHighestDensity.erase(listenersWithHighestDensity.begin());
             if (listenersWithHighestDensity.empty()) {
                 m_partitionDensityBook.erase(currDensityIterator);
@@ -103,7 +103,7 @@ struct Loadbalancer {
             m_partitionDensityBook[currDensity-1].insert(listenerIdToBeSnatchedFrom);
         }
 
-        for (const auto& [existingListenerId, numPartitionsToBeRemoved] : listenerIdToNumPartitionsToBeSnatched) {
+        for (const auto& [existingListenerId, numPartitionsToBeRemoved] : listenerIdToNumReassignedPartitions) {
             auto& partitionRemovalList = m_listenerIdToPartitions[existingListenerId];
             std::for_each(  partitionRemovalList.begin(), 
                             std::next(partitionRemovalList.begin(), numPartitionsToBeRemoved),
