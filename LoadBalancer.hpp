@@ -20,8 +20,17 @@ struct Loadbalancer {
           m_activeKeys(numPartitions),
           m_partitionToListener(numPartitions, 0),
           m_listenerIdToListener(),
-          m_keyFromYin(keyFromYin), m_keyFromYang(keyFromYang),
-          m_yinFromKey(yinFromKey), m_yangFromKey(yangFromKey), m_keyGen(keyGen) {}
+          m_keyFromYin(keyFromYin),
+          m_keyFromYang(keyFromYang),
+          m_yinFromKey(yinFromKey),
+          m_yangFromKey(yangFromKey),
+          m_keyGen(keyGen) {
+            if (!(keyFromYin && keyFromYang && yinFromKey && yangFromKey && keyGen)) {
+                throw std::runtime_error("Invalid execution method passed");
+            } else if (0 == numPartitions) {
+                throw std::runtime_error("Num partitions can't be 0");
+            }
+        }
 
     void onData(const Yin& yin) {
         Key key = m_keyFromYin(yin);
@@ -91,7 +100,7 @@ struct Loadbalancer {
             --numPartitionsToBeReassigned)
         {
             auto currDensityIterator = m_partitionDensityBook.begin();
-            const size_t& currDensity = currDensityIterator->first;
+            const size_t currDensity = currDensityIterator->first;
             auto& listenersWithHighestDensity = currDensityIterator->second;
             size_t listenerIdToBeSnatchedFrom = *listenersWithHighestDensity.begin();
             ++listenerIdToNumReassignedPartitions[listenerIdToBeSnatchedFrom];
@@ -107,7 +116,7 @@ struct Loadbalancer {
             auto& partitionRemovalList = m_listenerIdToPartitions[existingListenerId];
             std::for_each(  partitionRemovalList.begin(), 
                             std::next(partitionRemovalList.begin(), numPartitionsToBeRemoved),
-                            [this, existingListenerId, &listenerFunctions, listenerId](size_t partitionToBeRemovedFromExistingListener) {
+                            [this, existingListenerId, &listenerFunctions, &listenerId](size_t partitionToBeRemovedFromExistingListener) {
                                 auto& [currYinFunc, currYangFunc] = m_listenerIdToListener[existingListenerId];
                                 auto& [listenerYinFunc, listenerYangFunc] = listenerFunctions;
                                 const auto& currActiveKeys = m_activeKeys[partitionToBeRemovedFromExistingListener];
