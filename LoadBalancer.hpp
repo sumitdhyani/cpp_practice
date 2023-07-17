@@ -10,8 +10,7 @@ struct Loadbalancer {
     typedef std::function<void(const Yin&)> YinFunc;
     typedef std::function<void(const Yang&)> YangFunc;
     typedef std::tuple<YinFunc, YangFunc> ListenerFunctions;
-
-    Loadbalancer(size_t numPartitions,
+    Loadbalancer(const size_t& numPartitions,
                 std::function<Key(const Yin&)> keyFromYin,
                 std::function<Key(const Yang&)> keyFromYang,
                 std::function<Yin(const Key&)> yinFromKey,
@@ -19,36 +18,36 @@ struct Loadbalancer {
                 std::function<size_t(const Key&)> keyGen)
         : m_numPartitions(numPartitions),
           m_activeKeys(numPartitions),
-          m_partitionToListener(numPartitions, std::make_tuple(YinFunc{}, YangFunc{})),
+          m_partitionToListener(numPartitions, 0),
           m_listenerIdToListener(),
           m_keyFromYin(keyFromYin), m_keyFromYang(keyFromYang),
           m_yinFromKey(yinFromKey), m_yangFromKey(yangFromKey), m_keyGen(keyGen) {}
 
-    void onData(Yin yin) {
+    void onData(const Yin& yin) {
         Key key = m_keyFromYin(yin);
         size_t partition = m_keyGen(key) % m_numPartitions;
-
         m_activeKeys[partition].insert(key);
-
-        if (std::get<0>(m_partitionToListener[partition]) != nullptr) {
-            auto listenerFuncs = m_partitionToListener[partition];
-            std::get<0>(listenerFuncs)(yin);
+        if (m_listenerIdToListener.empty()) {
+            return;
         }
+
+        const auto& [yinFunc, yangFunc] = m_listenerIdToListener[m_partitionToListener[partition]];
+        yinFunc(yin);
     }
 
-    void onData(Yang yang) {
+    void onData(const Yang& yang) {
         Key key = m_keyFromYang(yang);
         size_t partition = m_keyGen(key) % m_numPartitions;
-
         m_activeKeys[partition].erase(key);
-
-        if (std::get<1>(m_partitionToListener[partition]) != nullptr) {
-            auto listenerFuncs = m_partitionToListener[partition];
-            std::get<1>(listenerFuncs)(yang);
+        if (m_listenerIdToListener.empty()) {
+            return;
         }
+
+        const auto& [yinFunc, yangFunc] = m_listenerIdToListener[m_partitionToListener[partition]];
+        yinFunc(yang);
     }
 
-    bool onListenerAdded(size_t listenerId, ListenerFunctions listenerFunctions) {
+    bool onListenerAdded(const size_t& listenerId, const ListenerFunctions& listenerFunctions) {
         if (0 == m_listenerIdToListener.size()) {
             onFirstListenerAdded(listenerId, listenerFunctions);
             printAllBooks();
@@ -98,7 +97,7 @@ struct Loadbalancer {
                                     currYangFunc(m_yangFromKey(key));
                                     listenerYinFunc(m_yinFromKey(key));
                                 }
-                                m_partitionToListener[partitionToBeRemovedFromExistingListener] = listenerFunctions;
+                                m_partitionToListener[partitionToBeRemovedFromExistingListener] = listenerId;
                                 m_listenerIdToPartitions[listenerId].insert(partitionToBeRemovedFromExistingListener);
                             }
             );
@@ -114,8 +113,8 @@ struct Loadbalancer {
         return true;
     }
 
-    bool onListenerRemoved(size_t listenerId) {
-         if (auto it = m_reserveListeners.find(listenerId); it != m_reserveListeners.end()) {
+    bool onListenerRemoved(const size_t& listenerId) {
+        if (auto it = m_reserveListeners.find(listenerId); it != m_reserveListeners.end()) {
             m_reserveListeners.erase(it);
             printAllBooks();
             return true;
@@ -134,7 +133,7 @@ struct Loadbalancer {
     }
 
 private:
-    void transferPartitionsToSiblingListeners(size_t listenerIdToBeRemoved) {
+    void transferPartitionsToSiblingListeners(const size_t& listenerIdToBeRemoved) {
         auto orphannedPartitions = std::move(m_listenerIdToPartitions[listenerIdToBeRemoved]);
         m_listenerIdToListener.erase(listenerIdToBeRemoved);
         m_listenerIdToPartitions.erase(listenerIdToBeRemoved);
@@ -146,10 +145,6 @@ private:
             if (listenerIdSet.empty()) {
                 m_partitionDensityBook.erase(it);
             }
-        }
-
-        for (const auto& partition : orphannedPartitions) {
-            m_partitionToListener[partition] = {YinFunc{}, YangFunc{}};
         }
 
         size_t numOrphannedPartitions = orphannedPartitions.size();
@@ -192,7 +187,7 @@ private:
                     m_partitionDensityBook.erase(itDensitySet);
                 }
 
-                m_partitionToListener[currReassignedPartition] = std::move(listenerFuncs);
+                m_partitionToListener[currReassignedPartition] = listenerId;
                 m_listenerIdToPartitions[listenerId].insert(currReassignedPartition);
                 m_partitionDensityBook[m_listenerIdToPartitions[listenerId].size()].insert(listenerId);
     
@@ -201,7 +196,7 @@ private:
         }
     }
 
-    void transferPartitionsToNextAvailableReservedListener(size_t listenerId) {
+    void transferPartitionsToNextAvailableReservedListener(const size_t& listenerId) {
         auto [reservedListenerId, reservedListenerFunctions] = *m_reserveListeners.begin();
         auto& [reservedYinFunc, reservedYangFunc] = reservedListenerFunctions;
         m_reserveListeners.erase(m_reserveListeners.begin());
@@ -215,13 +210,13 @@ private:
         const auto& existingPartitionAssignmentSet = m_listenerIdToPartitions[listenerId];
         m_partitionDensityBook[existingPartitionAssignmentSet.size()].insert(reservedListenerId);
         for (const auto& partition : existingPartitionAssignmentSet) {
-            m_partitionToListener[partition] = reservedListenerFunctions;
+            m_partitionToListener[partition] = reservedListenerId;
         }
         m_listenerIdToPartitions[reservedListenerId] = std::move(existingPartitionAssignmentSet);
         removeFromAllTables(listenerId);
     }
 
-    void removeFromAllTables(size_t listenerId) {
+    void removeFromAllTables(const size_t& listenerId) {
         m_listenerIdToListener.erase(listenerId);
         m_listenerIdToPartitions.erase(listenerId);
         for (auto it = m_partitionDensityBook.begin();;) {
@@ -268,7 +263,7 @@ private:
 
     std::unordered_map<size_t, ListenerFunctions> m_listenerIdToListener;
     std::unordered_map<size_t, std::unordered_set<size_t>> m_listenerIdToPartitions;
-    std::vector<ListenerFunctions> m_partitionToListener;
+    std::vector<size_t> m_partitionToListener;
     std::map<size_t, std::unordered_set<size_t>, std::greater<size_t>> m_partitionDensityBook;
 
     std::unordered_map<size_t, ListenerFunctions> m_reserveListeners;
@@ -282,7 +277,7 @@ private:
     void onFirstListenerAdded(size_t listenerId, ListenerFunctions listenerFunctions) {
         m_listenerIdToListener[listenerId] = listenerFunctions;
         for( size_t partition = 0; partition < m_numPartitions; ++partition) {
-            m_partitionToListener[partition] = listenerFunctions;
+            m_partitionToListener[partition] = listenerId;
         }
 
         auto& partitionList = m_listenerIdToPartitions[listenerId];
