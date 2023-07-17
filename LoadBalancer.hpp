@@ -47,8 +47,27 @@ struct Loadbalancer {
         yinFunc(yang);
     }
 
-    bool onListenerAdded(const size_t& listenerId, const ListenerFunctions& listenerFunctions) {
+    bool onListenerAdded(const size_t& listenerId, const ListenerFunctions& listenerFunctions) {       
         if (0 == m_listenerIdToListener.size()) {
+            const auto onFirstListenerAdded  = [this](const size_t& listenerId, const ListenerFunctions& listenerFunctions) {
+                m_listenerIdToListener[listenerId] = listenerFunctions;
+                for( size_t partition = 0; partition < m_numPartitions; ++partition) {
+                    m_partitionToListener[partition] = listenerId;
+                }
+
+                auto& partitionList = m_listenerIdToPartitions[listenerId];
+                for (size_t i = 0; i < m_numPartitions; i++) {
+                    partitionList.insert(i);
+                }
+
+                m_partitionDensityBook[m_numPartitions].insert(listenerId);
+
+                for (const auto& keysForThisPartition: m_activeKeys) {
+                    for (const auto& key : keysForThisPartition) {
+                        std::get<0>(listenerFunctions)(m_yinFromKey(key));
+                    }
+                }
+            };
             onFirstListenerAdded(listenerId, listenerFunctions);
             printAllBooks();
             return true;
@@ -66,15 +85,14 @@ struct Loadbalancer {
 
         m_listenerIdToListener[listenerId] = listenerFunctions;
         std::unordered_map<size_t, size_t> listenerIdToNumPartitionsToBeSnatched;
-        size_t numPartitionsToBeReassigned = m_numPartitions / (m_listenerIdToListener.size());
 
-        for (size_t numPartitionsToBeReassigned = m_numPartitions / (m_listenerIdToListener.size());
+        for (size_t numPartitionsToBeReassigned = m_numPartitions / m_listenerIdToListener.size();
             numPartitionsToBeReassigned > 0;
             --numPartitionsToBeReassigned)
         {
             auto currDensityIterator = m_partitionDensityBook.begin();
             size_t currDensity = currDensityIterator->first;
-            auto& listenersWithHighestDensity  = currDensityIterator->second;
+            auto& listenersWithHighestDensity = currDensityIterator->second;
             size_t listenerIdToBeSnatchedFrom = *listenersWithHighestDensity.begin();
             ++listenerIdToNumPartitionsToBeSnatched[listenerIdToBeSnatchedFrom];
             listenersWithHighestDensity.erase(listenersWithHighestDensity.begin());
@@ -107,6 +125,7 @@ struct Loadbalancer {
             partitionRemovalList.erase(partitionRemovalList.begin(), end);
         }
 
+        size_t numPartitionsToBeReassigned = m_numPartitions / (m_listenerIdToListener.size());
         m_partitionDensityBook[numPartitionsToBeReassigned].insert(listenerId);
 
         printAllBooks();
@@ -122,10 +141,109 @@ struct Loadbalancer {
             printAllBooks();
             return false;
         } else if (!(m_reserveListeners.empty())) {
+            auto transferPartitionsToNextAvailableReservedListener = [this](const size_t& listenerId) {
+                auto [reservedListenerId, reservedListenerFunctions] = *m_reserveListeners.begin();
+                auto& [reservedYinFunc, reservedYangFunc] = reservedListenerFunctions;
+                m_reserveListeners.erase(m_reserveListeners.begin());
+                for (const auto& partition : m_listenerIdToPartitions[listenerId]) {
+                    for (const auto& key : m_activeKeys[partition]) {
+                        reservedYinFunc(m_yinFromKey(key));
+                    }
+                }
+
+                m_listenerIdToListener[reservedListenerId] = reservedListenerFunctions;
+                const auto& existingPartitionAssignmentSet = m_listenerIdToPartitions[listenerId];
+                m_partitionDensityBook[existingPartitionAssignmentSet.size()].insert(reservedListenerId);
+                for (const auto& partition : existingPartitionAssignmentSet) {
+                    m_partitionToListener[partition] = reservedListenerId;
+                }
+                m_listenerIdToPartitions[reservedListenerId] = std::move(existingPartitionAssignmentSet);
+                auto removeFromAllTables = [this](const size_t& listenerId) {
+                    m_listenerIdToListener.erase(listenerId);
+                    m_listenerIdToPartitions.erase(listenerId);
+                    for (auto it = m_partitionDensityBook.begin();;) {
+                        if (it->second.erase(listenerId) == 1) {
+                            if (it->second.empty()) {
+                                m_partitionDensityBook.erase(it);
+                            }
+                            break;
+                        } else {
+                            it++;
+                        }
+                    }
+                };
+
+                removeFromAllTables(listenerId);
+            };
             transferPartitionsToNextAvailableReservedListener(listenerId);
             printAllBooks();
             return false;
         } else {
+            auto transferPartitionsToSiblingListeners = [this](const size_t& listenerIdToBeRemoved) {
+                std::set<size_t> orphannedPartitions(std::move(m_listenerIdToPartitions[listenerIdToBeRemoved]));
+                m_listenerIdToListener.erase(listenerIdToBeRemoved);
+                m_listenerIdToPartitions.erase(listenerIdToBeRemoved);
+                const auto it = m_partitionDensityBook.find(orphannedPartitions.size());
+
+                {
+                    auto& listenerIdSet = it->second;
+                    listenerIdSet.erase(listenerIdToBeRemoved);
+                    if (listenerIdSet.empty()) {
+                        m_partitionDensityBook.erase(it);
+                    }
+                }
+
+                size_t numOrphannedPartitions = orphannedPartitions.size();
+                size_t numSiblingsToShareOrphannedPartitions = std::min(numOrphannedPartitions, m_listenerIdToListener.size());
+                if (0 == numSiblingsToShareOrphannedPartitions) {
+                    return;
+                }
+
+                std::vector<size_t> siblingsToShareOrphannedPartitions;
+
+                {
+                    size_t remainingOrphannedPartitions = numOrphannedPartitions;
+                    auto it = m_partitionDensityBook.rbegin();
+                    for(; remainingOrphannedPartitions > 0; it++) {
+                        const auto& currDensitySet = it->second;
+                        std::for_each(currDensitySet.begin(), 
+                                    std::next(currDensitySet.begin(), std::min(remainingOrphannedPartitions, currDensitySet.size())),
+                                    [this, &siblingsToShareOrphannedPartitions, &remainingOrphannedPartitions](size_t listenerId) {
+                                        siblingsToShareOrphannedPartitions.push_back(listenerId);
+                                        --remainingOrphannedPartitions;                
+                                    });
+                    }
+                }
+
+                {
+                    size_t currSiblingIndex = 0;
+                    for (auto it = orphannedPartitions.begin(); it != orphannedPartitions.end(); ++it) {
+                        size_t currReassignedPartition = *it;
+                        const auto& listenerId = siblingsToShareOrphannedPartitions[currSiblingIndex];
+
+                        {
+                            const auto& [yinFunc, yangFunc] = m_listenerIdToListener[listenerId];
+                            for (const auto& key : m_activeKeys[currReassignedPartition]) {
+                                yinFunc(m_yinFromKey(key));
+                            }
+                        }
+
+                        size_t numPreviouslyHandledPartitionsbyThisListener = m_listenerIdToPartitions[listenerId].size();
+                        auto itDensitySet = m_partitionDensityBook.find(numPreviouslyHandledPartitionsbyThisListener);
+                        auto& prevDensitySet = itDensitySet->second;
+                        prevDensitySet.erase(listenerId);
+                        if (prevDensitySet.empty()) {
+                            m_partitionDensityBook.erase(itDensitySet);
+                        }
+
+                        m_partitionToListener[currReassignedPartition] = listenerId;
+                        m_listenerIdToPartitions[listenerId].insert(currReassignedPartition);
+                        m_partitionDensityBook[m_listenerIdToPartitions[listenerId].size()].insert(listenerId);
+
+                        currSiblingIndex = (currSiblingIndex + 1) % numSiblingsToShareOrphannedPartitions;
+                    }
+                }
+            };
             transferPartitionsToSiblingListeners(listenerId);
             printAllBooks();
             return true;
@@ -133,107 +251,6 @@ struct Loadbalancer {
     }
 
 private:
-    void transferPartitionsToSiblingListeners(const size_t& listenerIdToBeRemoved) {
-        auto orphannedPartitions = std::move(m_listenerIdToPartitions[listenerIdToBeRemoved]);
-        m_listenerIdToListener.erase(listenerIdToBeRemoved);
-        m_listenerIdToPartitions.erase(listenerIdToBeRemoved);
-        const auto it = m_partitionDensityBook.find(orphannedPartitions.size());
-
-        {
-            auto& listenerIdSet = it->second;
-            listenerIdSet.erase(listenerIdToBeRemoved);
-            if (listenerIdSet.empty()) {
-                m_partitionDensityBook.erase(it);
-            }
-        }
-
-        size_t numOrphannedPartitions = orphannedPartitions.size();
-        size_t numSiblingsToShareOrphannedPartitions = std::min(numOrphannedPartitions, m_listenerIdToListener.size());
-        if (0 == numSiblingsToShareOrphannedPartitions) {
-            return;
-        }
-
-        std::vector<size_t> siblingsToShareOrphannedPartitions;
-
-        {
-            size_t remainingOrphannedPartitions = numOrphannedPartitions;
-            auto it = m_partitionDensityBook.rbegin();
-            for(; remainingOrphannedPartitions > 0; it++) {
-                const auto& currDensitySet = it->second;
-                std::for_each(currDensitySet.begin(), 
-                            std::next(currDensitySet.begin(), std::min(remainingOrphannedPartitions, currDensitySet.size())),
-                            [this, &siblingsToShareOrphannedPartitions, &remainingOrphannedPartitions](size_t listenerId) {
-                                siblingsToShareOrphannedPartitions.push_back(listenerId);
-                                --remainingOrphannedPartitions;                
-                            });
-            }
-        }
-
-        {
-            size_t currSiblingIndex = 0;
-            for (auto it = orphannedPartitions.begin(); it != orphannedPartitions.end(); ++it) {
-                size_t currReassignedPartition = *it;
-                const auto& listenerId = siblingsToShareOrphannedPartitions[currSiblingIndex];
-
-                {
-                    const auto& [yinFunc, yangFunc] = m_listenerIdToListener[listenerId];
-                    for (const auto& key : m_activeKeys[currReassignedPartition]) {
-                        yinFunc(m_yinFromKey(key));
-                    }
-                }
-                
-                size_t numPreviouslyHandledPartitionsbyThisListener = m_listenerIdToPartitions[listenerId].size();
-                auto itDensitySet = m_partitionDensityBook.find(numPreviouslyHandledPartitionsbyThisListener);
-                auto& prevDensitySet = itDensitySet->second;
-                prevDensitySet.erase(listenerId);
-                if (prevDensitySet.empty()) {
-                    m_partitionDensityBook.erase(itDensitySet);
-                }
-
-                m_partitionToListener[currReassignedPartition] = listenerId;
-                m_listenerIdToPartitions[listenerId].insert(currReassignedPartition);
-                m_partitionDensityBook[m_listenerIdToPartitions[listenerId].size()].insert(listenerId);
-    
-                currSiblingIndex = (currSiblingIndex + 1) % numSiblingsToShareOrphannedPartitions;
-            }
-        }
-    }
-
-    void transferPartitionsToNextAvailableReservedListener(const size_t& listenerId) {
-        auto [reservedListenerId, reservedListenerFunctions] = *m_reserveListeners.begin();
-        auto& [reservedYinFunc, reservedYangFunc] = reservedListenerFunctions;
-        m_reserveListeners.erase(m_reserveListeners.begin());
-        for (const auto& partition : m_listenerIdToPartitions[listenerId]) {
-            for (const auto& key : m_activeKeys[partition]) {
-                reservedYinFunc(m_yinFromKey(key));
-            }
-        }
-
-        m_listenerIdToListener[reservedListenerId] = reservedListenerFunctions;
-        const auto& existingPartitionAssignmentSet = m_listenerIdToPartitions[listenerId];
-        m_partitionDensityBook[existingPartitionAssignmentSet.size()].insert(reservedListenerId);
-        for (const auto& partition : existingPartitionAssignmentSet) {
-            m_partitionToListener[partition] = reservedListenerId;
-        }
-        m_listenerIdToPartitions[reservedListenerId] = std::move(existingPartitionAssignmentSet);
-        removeFromAllTables(listenerId);
-    }
-
-    void removeFromAllTables(const size_t& listenerId) {
-        m_listenerIdToListener.erase(listenerId);
-        m_listenerIdToPartitions.erase(listenerId);
-        for (auto it = m_partitionDensityBook.begin();;) {
-            if (it->second.erase(listenerId) == 1) {
-                if (it->second.empty()) {
-                    m_partitionDensityBook.erase(it);
-                }
-                break;
-            } else {
-                it++;
-            }
-        }
-    }
-
     void printAllBooks() {
         std::cout << "==========================================================" << std::endl;
         for ( const auto& [listenerId, partitions] : m_listenerIdToPartitions) {
@@ -259,8 +276,8 @@ private:
         std::cout << "]" << std::endl;
 
         std::cout << "==========================================================" << std::endl;
-
     }
+
     size_t m_numPartitions;
     std::vector<std::unordered_set<Key>> m_activeKeys;
 
