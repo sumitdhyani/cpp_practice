@@ -35,6 +35,12 @@ struct Loadbalancer {
     void onData(const Yin& yin) {
         Key key = m_keyFromYin(yin);
         size_t partition = m_keyGen(key) % m_numPartitions;
+        
+        auto& keySet = m_activeKeys[partition];
+        if (keySet.find(key) != keySet.end()) {
+            throw std::runtime_error("Duplicate Key provided!");
+        }
+
         m_activeKeys[partition].insert(key);
         if (m_listenerIdToListener.empty()) {
             return;
@@ -47,13 +53,15 @@ struct Loadbalancer {
     void onData(const Yang& yang) {
         Key key = m_keyFromYang(yang);
         size_t partition = m_keyGen(key) % m_numPartitions;
-        m_activeKeys[partition].erase(key);
-        if (m_listenerIdToListener.empty()) {
+
+        if (0 == m_activeKeys[partition].erase(key)) {
+            throw std::runtime_error("Spurious Key provided!");
+        } else if (m_listenerIdToListener.empty()) {
             return;
         }
 
         const auto& [yinFunc, yangFunc] = m_listenerIdToListener[m_partitionToListener[partition]];
-        yinFunc(yang);
+        yangFunc(yang);
     }
 
     bool onListenerAdded(const size_t& listenerId, const ListenerFunctions& listenerFunctions) {       
@@ -261,6 +269,7 @@ struct Loadbalancer {
 
 private:
     void printAllBooks() {
+        //return;
         std::cout << "==========================================================" << std::endl;
         for ( const auto& [listenerId, partitions] : m_listenerIdToPartitions) {
             std::cout << "Listener Id: " << listenerId << ", partitions: [";
@@ -302,24 +311,4 @@ private:
     std::function<Yin(const Key&)> m_yinFromKey;
     std::function<Yang(const Key&)> m_yangFromKey;
     std::function<size_t(const Key&)> m_keyGen;
-
-    void onFirstListenerAdded(size_t listenerId, ListenerFunctions listenerFunctions) {
-        m_listenerIdToListener[listenerId] = listenerFunctions;
-        for( size_t partition = 0; partition < m_numPartitions; ++partition) {
-            m_partitionToListener[partition] = listenerId;
-        }
-
-        auto& partitionList = m_listenerIdToPartitions[listenerId];
-        for (size_t i = 0; i < m_numPartitions; i++) {
-            partitionList.insert(i);
-        }
-
-        m_partitionDensityBook[m_numPartitions].insert(listenerId);
-
-        for (const auto& keysForThisPartition: m_activeKeys) {
-            for (const auto& key : keysForThisPartition) {
-                std::get<0>(listenerFunctions)(m_yinFromKey(key));
-            }
-        }
-    }
 };
