@@ -64,9 +64,9 @@ struct Loadbalancer {
         yangFunc(yang);
     }
 
-    bool onListenerAdded(const ListenerId& listenerId, const ListenerFunctions& listenerFunctions) {       
+    void onListenerAdded(const ListenerId& listenerId, const ListenerFunctions& listenerFunctions) {       
         if (0 == m_listenerIdToListener.size()) {
-            const auto onFirstListenerAdded  = [this](const size_t& listenerId, const ListenerFunctions& listenerFunctions) {
+            const std::function<void(const size_t&, const ListenerFunctions&)> onFirstListenerAdded  = [this](const size_t& listenerId, const ListenerFunctions& listenerFunctions) {
                 m_listenerIdToListener[listenerId] = listenerFunctions;
                 for( size_t partition = 0; partition < m_numPartitions; ++partition) {
                     m_partitionToListener[partition] = listenerId;
@@ -79,21 +79,20 @@ struct Loadbalancer {
 
                 m_partitionDensityBook[m_numPartitions].insert(listenerId);
 
-                for (const auto& keysForThisPartition: m_activeKeys) {
+                for (const auto& keysForThisPartition : m_activeKeys) {
                     for (const auto& key : keysForThisPartition) {
-                        std::get<0>(listenerFunctions)(m_yinFromKey(key));
+                        const auto& [yinFunc, yangFunc] = listenerFunctions;
+                        yinFunc(m_yinFromKey(key));
                     }
                 }
             };
             onFirstListenerAdded(listenerId, listenerFunctions);
-            return true;
         } else if (m_listenerIdToListener.size() == m_numPartitions) {
             m_reserveListeners[listenerId] = listenerFunctions;
-            return true;
         } else if (m_listenerIdToListener.find(listenerId) != m_listenerIdToListener.end()) {
-            return false;
+            throw std::runtime_error("Duplicate listener Id provided!");
         } else if (!(std::get<0>(listenerFunctions) && std::get<1>(listenerFunctions))) {
-            return false;
+            throw std::runtime_error("Null listener provided!");
         }
 
         m_listenerIdToListener[listenerId] = listenerFunctions;
@@ -138,10 +137,8 @@ struct Loadbalancer {
             partitionRemovalList.erase(partitionRemovalList.begin(), end);
         }
 
-        size_t numPartitionsToBeReassigned = m_numPartitions / (m_listenerIdToListener.size());
-        m_partitionDensityBook[numPartitionsToBeReassigned].insert(listenerId);
-
-        return true;
+        size_t numReassignedPartitions = m_numPartitions / (m_listenerIdToListener.size());
+        m_partitionDensityBook[numReassignedPartitions].insert(listenerId);
     }
 
     bool onListenerRemoved(const ListenerId& listenerId) {

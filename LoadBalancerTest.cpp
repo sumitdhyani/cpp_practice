@@ -37,19 +37,18 @@ int main() {
             indexGen);
 
     for (size_t i = 0; i < numPartitions; i++) {
-        std::cout << lb.onListenerAdded(i, {[i,
-                                            partitionGen,
-                                            keyFromYin,
-                                            &listenerIdToPartitions,
-                                            &keyToListeners,
-                                            &partitionToListeners](const Yin& yin) {
-                                                auto partition = partitionGen(yin);
-                                                keyToListeners[yin].insert(i);
-                                                partitionToListeners[partition].insert(i);
-                                            },
-                                            [i, partitionGen, indexGen, keyFromYang](const Yang& yang) { std::cout << yang << " : " << i << std::endl; }});
+        lb.onListenerAdded(i, {[i,
+                                partitionGen,
+                                keyFromYin,
+                                &listenerIdToPartitions,
+                                &keyToListeners,
+                                &partitionToListeners](const Yin& yin) {
+                                    auto partition = partitionGen(yin);
+                                    keyToListeners[yin].insert(i);
+                                    partitionToListeners[partition].insert(i);
+                                },
+                                [](const Yang& yang) { }});
     }
-
     //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
     //for(size_t i = numPartitions; i < 2*numPartitions; i++) {
     //    lb.onListenerRemoved(i);
