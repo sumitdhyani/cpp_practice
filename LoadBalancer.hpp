@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <iostream>
-template<class Yin, class Yang, class Key>
+template<class Yin, class Yang, class Key, class ListenerId>
 struct Loadbalancer {
     typedef std::function<void(const Yin&)> YinFunc;
     typedef std::function<void(const Yang&)> YangFunc;
@@ -64,7 +64,7 @@ struct Loadbalancer {
         yangFunc(yang);
     }
 
-    bool onListenerAdded(const size_t& listenerId, const ListenerFunctions& listenerFunctions) {       
+    bool onListenerAdded(const ListenerId& listenerId, const ListenerFunctions& listenerFunctions) {       
         if (0 == m_listenerIdToListener.size()) {
             const auto onFirstListenerAdded  = [this](const size_t& listenerId, const ListenerFunctions& listenerFunctions) {
                 m_listenerIdToListener[listenerId] = listenerFunctions;
@@ -86,17 +86,13 @@ struct Loadbalancer {
                 }
             };
             onFirstListenerAdded(listenerId, listenerFunctions);
-            printAllBooks();
             return true;
         } else if (m_listenerIdToListener.size() == m_numPartitions) {
             m_reserveListeners[listenerId] = listenerFunctions;
-            printAllBooks();
             return true;
         } else if (m_listenerIdToListener.find(listenerId) != m_listenerIdToListener.end()) {
-            printAllBooks();
             return false;
         } else if (!(std::get<0>(listenerFunctions) && std::get<1>(listenerFunctions))) {
-            printAllBooks();
             return false;
         }
 
@@ -145,17 +141,14 @@ struct Loadbalancer {
         size_t numPartitionsToBeReassigned = m_numPartitions / (m_listenerIdToListener.size());
         m_partitionDensityBook[numPartitionsToBeReassigned].insert(listenerId);
 
-        printAllBooks();
         return true;
     }
 
-    bool onListenerRemoved(const size_t& listenerId) {
+    bool onListenerRemoved(const ListenerId& listenerId) {
         if (auto it = m_reserveListeners.find(listenerId); it != m_reserveListeners.end()) {
             m_reserveListeners.erase(it);
-            printAllBooks();
             return true;
         } else if (auto it = m_listenerIdToListener.find(listenerId); it == m_listenerIdToListener.end()) {
-            printAllBooks();
             return false;
         } else if (!(m_reserveListeners.empty())) {
             auto transferPartitionsToNextAvailableReservedListener = [this](const size_t& listenerId) {
@@ -189,11 +182,9 @@ struct Loadbalancer {
                         }
                     }
                 };
-
                 removeFromAllTables(listenerId);
             };
             transferPartitionsToNextAvailableReservedListener(listenerId);
-            printAllBooks();
             return false;
         } else {
             auto transferPartitionsToSiblingListeners = [this](const size_t& listenerIdToBeRemoved) {
@@ -262,44 +253,15 @@ struct Loadbalancer {
                 }
             };
             transferPartitionsToSiblingListeners(listenerId);
-            printAllBooks();
             return true;
         }
     }
 
 private:
-    void printAllBooks() {
-        //return;
-        std::cout << "==========================================================" << std::endl;
-        for ( const auto& [listenerId, partitions] : m_listenerIdToPartitions) {
-            std::cout << "Listener Id: " << listenerId << ", partitions: [";
-            for (const auto& partition : partitions) {
-                std::cout << partition << ", ";
-            }
-            std::cout << "]" << std::endl;
-        }
-
-        for ( const auto& [numPartitionshandled, listenerds] : m_partitionDensityBook) {
-            std::cout << "NumPartitionshandled: " << numPartitionshandled << ", listenerds: [";
-            for (const auto& listenerd : listenerds) {
-                std::cout << listenerd << ", ";
-            }
-            std::cout << "]" << std::endl;
-        }
-
-        std::cout << "Reserved listeners: [";
-        for ( const auto& [listenerId, listenerFunctions] : m_reserveListeners) {
-            std::cout << listenerId << ", ";
-        }
-        std::cout << "]" << std::endl;
-
-        std::cout << "==========================================================" << std::endl;
-    }
-
     size_t m_numPartitions;
     std::vector<std::unordered_set<Key>> m_activeKeys;
 
-    std::unordered_map<size_t, ListenerFunctions> m_listenerIdToListener;
+    std::unordered_map<ListenerId, ListenerFunctions> m_listenerIdToListener;
     std::unordered_map<size_t, std::unordered_set<size_t>> m_listenerIdToPartitions;
     std::vector<size_t> m_partitionToListener;
     std::map<size_t, std::unordered_set<size_t>, std::greater<size_t>> m_partitionDensityBook;
