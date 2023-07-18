@@ -15,7 +15,7 @@ struct Loadbalancer {
                 std::function<Key(const Yang&)> keyFromYang,
                 std::function<Yin(const Key&)> yinFromKey,
                 std::function<Yang(const Key&)> yangFromKey,
-                std::function<size_t(const Key&)> keyGen)
+                std::function<size_t(const Key&)> idxGen)
         : m_numPartitions(numPartitions),
           m_activeKeys(numPartitions),
           m_partitionToListener(numPartitions, 0),
@@ -24,8 +24,8 @@ struct Loadbalancer {
           m_keyFromYang(keyFromYang),
           m_yinFromKey(yinFromKey),
           m_yangFromKey(yangFromKey),
-          m_keyGen(keyGen) {
-            if (!(keyFromYin && keyFromYang && yinFromKey && yangFromKey && keyGen)) {
+          m_idxGen(idxGen) {
+            if (!(keyFromYin && keyFromYang && yinFromKey && yangFromKey && idxGen)) {
                 throw std::runtime_error("Invalid execution method passed");
             } else if (0 == numPartitions) {
                 throw std::runtime_error("Num partitions can't be 0");
@@ -34,7 +34,7 @@ struct Loadbalancer {
 
     void onData(const Yin& yin) {
         Key key = m_keyFromYin(yin);
-        size_t partition = m_keyGen(key) % m_numPartitions;
+        size_t partition = m_idxGen(key) % m_numPartitions;
         
         auto& keySet = m_activeKeys[partition];
         if (keySet.find(key) != keySet.end()) {
@@ -52,7 +52,7 @@ struct Loadbalancer {
 
     void onData(const Yang& yang) {
         Key key = m_keyFromYang(yang);
-        size_t partition = m_keyGen(key) % m_numPartitions;
+        size_t partition = m_idxGen(key) % m_numPartitions;
 
         if (0 == m_activeKeys[partition].erase(key)) {
             throw std::runtime_error("Spurious Key provided!");
@@ -266,5 +266,5 @@ private:
     std::function<Key(const Yang&)> m_keyFromYang;
     std::function<Yin(const Key&)> m_yinFromKey;
     std::function<Yang(const Key&)> m_yangFromKey;
-    std::function<size_t(const Key&)> m_keyGen;
+    std::function<size_t(const Key&)> m_idxGen;
 };
