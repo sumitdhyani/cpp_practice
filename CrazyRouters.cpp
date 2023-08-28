@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
-#include <iostream>
 
 //Acts a light weight request-response mechanism
 //Making it templatized make is to be able to be used as a type safe mechanism'
@@ -21,12 +20,13 @@ struct PubSubDataRouter
 	bool produce(const Key& key, const Data&... data)
 	{
 		bool retVal = false;
-		if (auto it = m_routingTable.find(key); it != m_routingTable.end())
-			for (const auto& [registrationId, callback] : it->second)
-			{
+		if (auto it = m_routingTable.find(key); it != m_routingTable.end()) {
+			retVal = true;
+			for (const auto& [registrationId, callback] : it->second) {
 				callback(data...);
 				retVal = true;
 			}
+		}
 
 		return retVal;
 	}
@@ -36,12 +36,16 @@ struct PubSubDataRouter
 	{
 		bool retVal = true;
 		if (auto it = m_routingTable.find(key); it != m_routingTable.end())
-			if (auto itCallback = it->second.find(registrationId); itCallback == it->second.end())
+			if (auto itCallback = it->second.find(registrationId); itCallback == it->second.end()) {
 				it->second[registrationId] = callback;
+				m_regIdToKeys[registrationId].insert(key);
+			}
 			else
 				retVal = false;
-		else
+		else {
 			m_routingTable[key] = { {registrationId, callback} };
+			m_regIdToKeys[registrationId].insert(key);
+		}
 
 		return retVal;
 	}
@@ -54,24 +58,40 @@ struct PubSubDataRouter
 	bool unregister(const Key& key, const RegistrationId& registrationId)
 	{
 		bool retVal = false;
-		if (auto it = m_routingTable.find(key); it != m_routingTable.end())
-			if (auto itCallback = it->second.find(registrationId); itCallback != it->second.end())
-			{
+		if (auto it = m_routingTable.find(key); it != m_routingTable.end()) {
+			if (auto itCallback = it->second.find(registrationId); itCallback != it->second.end()) {
 				it->second.erase(itCallback);
+
+				auto itRegIdToKeys = m_regIdToKeys.find(registrationId);
+				auto& [regId, keys] = *itRegIdToKeys;
+				keys.erase(key);
+				if (keys.empty()) {
+					m_regIdToKeys.erase(itRegIdToKeys);
+				}
 				retVal = true;
 			}
+		}
 
 		return retVal;
 	}
 
-	void unregisterAll(const RegistrationId& registrationId)
+	bool unregisterAll(const RegistrationId& registrationId)
 	{
-		for (const auto& [key, callbacks] : m_routingTable)
-			unregister(key, registrationId);
+		if (auto it = m_regIdToKeys.find(registrationId); it != m_regIdToKeys.end()) {
+			const auto& [regId, keys] = *it;
+			for (const auto& key : keys) {
+				unregister(key, registrationId);
+			}
+			m_regIdToKeys.erase(it);
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 private:
 	std::unordered_map<Key, std::unordered_map<RegistrationId, DataCallback>> m_routingTable;
+	std::unordered_map<RegistrationId, std::unordered_set<Key>> m_regIdToKeys;
 };
 
 template <class Key, class... Data>
@@ -90,11 +110,13 @@ struct ConsumerFunctions
 	std::function<void(const RegistrationId&)> unregisterAll;
 };
 
-template<class AwaiterId, class ResponderId, class ReqId, class ReqData, class... Response>
+template<class ResponderId, class ReqId, class ReqData, class... Response>
 struct EndToEndReqRespRouter {
 
 	typedef std::function<void(const Response&...)> ResponseHandler;
 	typedef std::function<void(const ReqData&, const ResponseHandler&)> ReqListener;
+	typedef PubSubDataRouter<ResponderId, size_t, ReqData, ResponseHandler> ReqRouter;
+	typedef PubSubDataRouter<ReqId, size_t, Response...> RespRouter;
 
 	bool registerAsResponder(const ResponderId& responderId, const ReqListener& reqListener) {
 		return m_reqRouter.consume(responderId,
@@ -116,11 +138,11 @@ struct EndToEndReqRespRouter {
 				 const ResponseHandler& responseHandler) {
 		if( m_respRouter.consume(reqId, (size_t)this, [this, reqId, responseHandler](const Response&... response) {
 			responseHandler(response...);
-			m_respRouter.unregister(reqId, (size_t)this);
 			})
 		) {
 			m_reqRouter.produce(responderId, reqData, [this, reqId](const Response&... response) {
 				m_respRouter.produce(reqId, response...);
+				m_respRouter.unregister(reqId, (size_t)this);
 			});
 			return true;
 		} else {
@@ -129,16 +151,57 @@ struct EndToEndReqRespRouter {
 	}
 
 	bool cancelRequest(const ReqId& reqId) {
-		return m_respRouter.unregister(reqId);
+		return m_respRouter.unregister(reqId, (size_t)this);
 	}
 
+	//~EndToEndReqRespRouter() {
+	//	m_reqRouter.unregisterAll((size_t)this);
+	//	m_respRouter.unregisterAll((size_t)this);
+	//}
+
 	private:
-	PubSubDataRouter<ResponderId, size_t, ReqData, ResponseHandler> m_reqRouter;
-	PubSubDataRouter<ReqId, size_t, Response...> m_respRouter;
+	ReqRouter m_reqRouter;
+	RespRouter m_respRouter;
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////
+#include <iostream>
+#include <string>
 
 
 int main() {
+	auto responder = [](size_t num, const std::function<void(size_t, size_t)> callback) {
+		callback(num*num, num*num*num);
+	};
+	//template<class ResponderId, class ReqId, class ReqData, class... Response>
+	EndToEndReqRespRouter<size_t, size_t, size_t, size_t, size_t> reqRespRouter;
+	reqRespRouter.registerAsResponder(1, responder);
+	reqRespRouter.request(1, 1, 2, [](size_t res1, size_t res2) {
+		std::cout<< "Results: " << res1 << ", " << res2 << std::endl; 
+	});
+
+	PubSubDataRouter<size_t, size_t, size_t, std::string> pubSubRouter;
+	auto callback = [](const size_t& data, const std::string& str) {
+		std::cout << "Received: " << data << ", " << str.c_str() << std::endl;
+	};
+//
+	//pubSubRouter.consume(1, 1, callback);
+	//pubSubRouter.consume(2, 1, callback);
+//
+	//pubSubRouter.produce(1, 1, "A");
+	//pubSubRouter.produce(1, 2, "B");
+	//pubSubRouter.produce(2, 3, "C");
+	//pubSubRouter.produce(2, 4, "D");
+//
+	//pubSubRouter.unregister(2, 1);
+	//std::cout << "Unregistered key: 2" << std::endl;
+//
+//
+	//pubSubRouter.produce(1, 1, "A");
+	//pubSubRouter.produce(1, 2, "B");
+	//pubSubRouter.produce(2, 3, "C");
+	//pubSubRouter.produce(2, 4, "D");
+//
+//
+	//std::cout << "Just before end" << std::endl;
     return 0;
 }
