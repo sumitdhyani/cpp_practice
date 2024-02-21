@@ -1,14 +1,22 @@
 #pragma once
+#include <functional>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 
 template<class SubscriberId, class... Data>
 struct PubSubDataSink {
 	typedef std::function<void(Data...)> DataCallback;
 	bool produce(const Data&... data) {
+		if (m_routingTable.empty()) {
+			return false;
+		}
+
 		for (auto const& [subscriberId, callback] : m_routingTable) {
 			callback(data...);
 		}
+
+		return true;
 	}
 
 	bool consume(const SubscriberId& subscriberId, const DataCallback& callback) {
@@ -165,7 +173,7 @@ struct EndToEndReqRespRouter {
 	typedef PubSubDataRouter<ResponderId, size_t, ResponderIdHasher, ReqData, ResponseHandler> ReqRouter;
 	typedef PubSubDataRouter<ReqId, size_t, ReqIdHasher, Response...> RespRouter;
 
-	EndToEndReqRespRouter() m_reqPending(false) {}
+	EndToEndReqRespRouter() : m_reqPending(false) {}
 
 	bool registerAsResponder(const ResponderId& responderId, const ReqListener& reqListener) {
 		return m_reqRouter.consume(responderId,
@@ -187,11 +195,11 @@ struct EndToEndReqRespRouter {
 				 const ResponseHandler& responseHandler) {
 		if (m_pendingreqIds.find(reqId) != m_pendingreqIds.end()) {
 			throw std::runtime_error("Duplicate reqId");
-		} 
+		}
+
 		m_pendingreqIds.insert(reqId);
-		
-		auto func =
-		[this](){
+		auto reqForwarder =
+		[this, responderId, reqId, reqData, responseHandler](){
 			m_reqPending = true;
 			m_reqRouter.produce(responderId, reqData, [this, reqId, responseHandler](const Response&... response) {
 				if (auto it = m_pendingreqIds.find(reqId); it != m_pendingreqIds.end()) {
@@ -203,9 +211,13 @@ struct EndToEndReqRespRouter {
 		};
 
 		if (m_reqPending) {
-			m_pendingReqProcessors.push_back(func);
+			m_pendingReqProcessors.push(reqForwarder);
 		} else {
-			func();
+			reqForwarder();
+			while (!m_pendingReqProcessors.empty()) {
+				m_pendingReqProcessors.front()();
+				m_pendingReqProcessors.pop();
+			}
 		}
 	}
 
@@ -221,7 +233,7 @@ struct EndToEndReqRespRouter {
 
 	private:
 	bool m_reqPending;
-	std::vector<std::function<void()>> m_pendingReqProcessors;
+	std::queue<std::function<void()>> m_pendingReqProcessors;
 	ReqRouter m_reqRouter;
 	std::unordered_set<ReqId> m_pendingreqIds;
 };
@@ -334,7 +346,7 @@ struct GenericRequesterFunctions {
 };
 
 
-template<class Key, class SubData, class UnsubData, class KeyHasher = std::hash<key>, class KeyEquator = std::equal_to<Key>>
+template<class Key, class SubData, class UnsubData, class KeyHasher = std::hash<Key>, class KeyEquator = std::equal_to<Key>>
 struct SingleLinkSubUnsubHandler
 {
 	typedef std::function<void(const SubData&)> SubAction;
