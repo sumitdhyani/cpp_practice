@@ -6,7 +6,7 @@
 
 //Acts a light weight pub-sub mechanism
 //Making it templatized make is to be able to be used as a type safe mechanism
-template<class Key, class SubscriberId, class KeyHasher, class... Data>
+template<class Key, class SubscriberId, class... Data>
 struct PubSubDataRouter
 {
 	typedef std::function<void(const Data&...)> DataCallback;
@@ -106,8 +106,8 @@ private:
 		return true;
 	}
 
-	std::unordered_map<Key, std::unordered_map<SubscriberId, DataCallback>, KeyHasher> m_routingTable;
-	std::unordered_map<SubscriberId, std::unordered_set<Key, KeyHasher>> m_regIdToKeys;
+	std::unordered_map<Key, std::unordered_map<SubscriberId, DataCallback>> m_routingTable;
+	std::unordered_map<SubscriberId, std::unordered_set<Key>> m_regIdToKeys;
 };
 
 //Acts a light weight request-response mechanism
@@ -185,14 +185,13 @@ struct EndToEndReqRespRouter {
 	std::unordered_set<ReqId> m_pendingreqIds;
 };
 
-template<class ResponderId, class ReqType, class ReqId, class ReqData, class ReqTypeHasher, class ReqIdHasher, class... Response>
+template<class ResponderId, class ReqType, class ReqId, class ReqData, class... Response>
 struct GenericReqRespRouter {
 
 	typedef std::function<void(const Response&...)> ResponseHandler;
 	typedef std::function<void(const ReqData&, const ResponseHandler&)> ReqListener;
-	typedef PubSubDataRouter<ReqType, size_t, ReqTypeHasher, ReqData, ResponseHandler> ReqRouter;
-	typedef PubSubDataRouter<ReqId, size_t, ReqIdHasher, Response...> RespRouter;
-
+	typedef PubSubDataRouter<ReqType, size_t, ReqData, ResponseHandler> ReqRouter;
+	typedef PubSubDataRouter<ReqId, size_t, Response...> RespRouter;
 	GenericReqRespRouter() : m_reqPending(false) {}
 
 	bool registerAsResponder(const ResponderId& responderId, const ReqType& reqType, const ReqListener& reqListener) {
