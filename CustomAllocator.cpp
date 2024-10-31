@@ -6,8 +6,8 @@
 #include <functional>
 #include <optional>
  
-template<uint32_t size> 
-struct FreeResourcetable 
+template<uint32_t size>
+struct FreeResourcetable
 { 
   private:
   struct Node
@@ -15,7 +15,7 @@ struct FreeResourcetable
       //Idx of next or prev Node
       uint32_t m_linkIdx;
       //Size of this section
-      uint32_t m_size; 
+      uint32_t m_size;
   }; 
 
   public:
@@ -27,14 +27,14 @@ struct FreeResourcetable
     m_firstFreeIdx(0),
     m_firstOccupiedIdx(uint32_t_max)
   { 
-      Node& first = m_freeNodes[0]; 
-      Node& last = m_freeNodes[size-1]; 
+      Node& firstFreeNode = m_freeNodes[0]; 
+      Node& lastFreeNode = m_freeNodes[size-1]; 
 
-      first.m_linkIdx = uint32_t_max; 
-      first.m_size = size; 
-        
-      last.m_linkIdx = uint32_t_max; 
-      last.m_size = size;
+      firstFreeNode.m_linkIdx =
+      lastFreeNode.m_linkIdx = uint32_t_max; 
+      
+      firstFreeNode.m_size =
+      lastFreeNode.m_size = size;
   }
     
   
