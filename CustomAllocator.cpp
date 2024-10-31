@@ -1,5 +1,5 @@
-#include <cstdlib> 
-#include <cstdint> 
+#include <cstdlib>
+#include <cstdint>
 #include <tuple>
 #include <optional>
 
@@ -7,7 +7,7 @@ typedef uint32_t Size;
 
 template<Size size>
 struct FreeResourcetable
-{ 
+{
   private:
   struct Node
   {
@@ -15,36 +15,36 @@ struct FreeResourcetable
       Size m_linkIdx;
       //Size of this section
       Size m_size;
-  }; 
+  };
 
   public:
-  constexpr static const Size Size_max = Size(-1); 
-    
+  constexpr static const Size Size_max = Size(-1);
+
   FreeResourcetable() :
     m_freeNodes({0,0}),
     m_occupiedNodes({0,0}),
     m_firstFreeIdx(0),
     m_firstOccupiedIdx(Size_max)
-  { 
-      Node& firstFreeNode = m_freeNodes[0]; 
-      Node& lastFreeNode = m_freeNodes[size-1]; 
+  {
+      Node& firstFreeNode = m_freeNodes[0];
+      Node& lastFreeNode = m_freeNodes[size-1];
 
       firstFreeNode.m_linkIdx =
-      lastFreeNode.m_linkIdx = Size_max; 
-      
+      lastFreeNode.m_linkIdx = Size_max;
+
       firstFreeNode.m_size =
       lastFreeNode.m_size = size;
   }
-    
-  
+
+
   std::optional<Size> getNextFreeIdx(Size len)
-  { 
+  {
       // No free section available
       if (Size_max == m_firstFreeIdx)
-      { 
+      {
           return std::nullopt;
       }
-      
+
       for(Size currFreeIndex = m_firstFreeIdx;
           currFreeIndex != Size_max;
           currFreeIndex = m_freeNodes[currFreeIndex +
@@ -95,7 +95,7 @@ struct FreeResourcetable
   private:
 
   // Returns the prev section end idx and next section start idx
-  // if we were to inser a section starting at 'start' length 'len' 
+  // if we were to inser a section starting at 'start' length 'len'
   std::tuple<Size, Size> getPrevAndNext(Node* nodeArray,
                                                 Size start,
                                                 Size end,
@@ -104,9 +104,9 @@ struct FreeResourcetable
     // Find the prev and next for this section if it is to be
     // added in the metaArray
     // Following cases are anticipated:
-    
-    
-    
+
+
+
 
 
     // Case 0(no section is there yet):
@@ -136,8 +136,8 @@ struct FreeResourcetable
     {
       return {Size_max, firstIdx};
     }
-    
-    
+
+
     // Following cases ay occur in the loop below:
     // ==================================================
     // Case 2:
@@ -162,7 +162,7 @@ struct FreeResourcetable
     // So that prev = A, next = b
     Size prev = Size_max;
     Size next = Size_max;
-    
+
     bool foundPrevAndNext = false;
     for (Size a = firstIdx;
          !foundPrevAndNext && a != Size_max;
@@ -229,7 +229,7 @@ struct FreeResourcetable
                                                   start,
                                                   end,
                                                   m_firstFreeIdx);
-      
+
       // If start == 0, then '(node.m_linkIdx == start - 1)' evaluates to true
       // as m_linkIdxis set to Size_max in case there is no trailing section
       // even though this node is not joined with the any section, so an
@@ -239,12 +239,12 @@ struct FreeResourcetable
       // If size == end + 1, there is no trailing section,
       // let alone a touching trailing section
       const bool isJoinedWithNext = (size > end + 1) && (end + 1 == next);
-      
+
       if (isJoinedWithPrev && isJoinedWithNext)
-      { 
+      {
         // Case 0
         // a......An.....Nc....C
-        // [a,A] is the trailing touching section, [c,C] is the leading 
+        // [a,A] is the trailing touching section, [c,C] is the leading
         // touching section n,N is the freed section, i need to merge
         // a to C
         const Size A = prev;
@@ -253,17 +253,17 @@ struct FreeResourcetable
         const Size a = n - m_freeNodes[A].m_size;
         const Size c = next;
         const Size C = N + m_freeNodes[c].m_size;
-          
-        m_freeNodes[a].size = 
+
+        m_freeNodes[a].size =
         m_freeNodes[C].size = C + 1 - a;
-        
+
         // memset A,n,N and c to 0 as they are no longer
         // extremities of any section
         memset(&m_freeNodes[A], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[n], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[N], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[c], 0, sizeof(m_freeNodes[0]));
-      } 
+      }
       else if (isJoinedWithPrev)
       {
         // Case 1
@@ -276,16 +276,16 @@ struct FreeResourcetable
         const Size a = A + 1 - m_freeNodes[A].m_size;
         const Size n = start;
         const Size N = end;
-        
+
         m_freeNodes[a].m_size =
         m_freeNodes[N].m_size = N + 1 - a;
-        
+
         // memset A and n to 0 as they are no longer extremities
         // of any section
         memset(&m_freeNodes[A], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[n], 0, sizeof(m_freeNodes[0]));
-      } 
-      else if (isJoinedWithNext) 
+      }
+      else if (isJoinedWithNext)
       {
         // Case 2
         // ...n......Na.....A
@@ -298,17 +298,17 @@ struct FreeResourcetable
         const Size N = end;
         const Size a = next;
         const Size A = a + m_freeNodes[a].m_size - 1;
-        
+
         m_freeNodes[n].m_size =
         m_freeNodes[A].m_size = A + 1 - n;
-        
+
         // memset N and a to 0 as they are no longer extremities
         // of any section
         memset(&m_freeNodes[N], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[a], 0, sizeof(m_freeNodes[0]));
-      } 
-      else 
-      { 
+      }
+      else
+      {
         // Case 3
         // ...n......N.....
         // [n,N] is the freed section, it has no touching section
@@ -331,7 +331,7 @@ struct FreeResourcetable
               Size endIdx,
               Size len,
               Size& firstIdx)
-  { 
+  {
       Node& startNode = nodeArr[startIdx];
       Node& endNode = nodeArr[endIdx];
       Size sectionSize = startNode.m_size;
@@ -366,27 +366,27 @@ struct FreeResourcetable
         Node& newNode = nodeArr[newPos];
         newNode = startNode;
         memset(&startNode, 0, sizeof(startNode));
-        
+
         if(startIdx == firstIdx)
-        { 
+        {
             firstIdx = newPos;
-        } 
+        }
         else if (newNode.m_linkIdx != Size_max)
-        { 
+        {
             nodeArr[newNode.m_linkIdx].m_linkIdx = newPos;
         }
       }
   }
 
-  Node m_freeNodes[size]; 
-  Node m_occupiedNodes[size]; 
+  Node m_freeNodes[size];
+  Node m_occupiedNodes[size];
   Size m_firstFreeIdx;
   Size m_firstOccupiedIdx;
 };
- 
 
- 
-int main() 
-{ 
-  return 0; 
+
+
+int main()
+{
+  return 0;
 }
