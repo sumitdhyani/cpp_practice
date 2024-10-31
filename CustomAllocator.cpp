@@ -164,26 +164,24 @@ struct FreeResourcetable
     uint32_t next = uint32_t_max;
     
     bool foundPrevAndNext = false;
-    for (uint32_t currSectionStart = firstIdx;
-         !foundPrevAndNext && currSectionStart != uint32_t_max;
-         // Set it to the start of nextSection 
-         currSectionStart = nodeArray[currSectionStart + nodeArray[currSectionStart].m_size - 1].m_linkIdx)
+    for (uint32_t a = firstIdx;
+         !foundPrevAndNext && a != uint32_t_max;
+         // Set it to the start of nextSection
+         a = nodeArray[a + nodeArray[a].m_size - 1].m_linkIdx)
     {
-      const uint32_t pairedIdx = currSectionStart + nodeArray[currSectionStart].m_size - 1;
-      const Node& pairedNode = nodeArray[pairedIdx];
-      const uint32_t nextSectionStart = pairedNode.m_linkIdx;
+      const uint32_t A = a + nodeArray[a].m_size - 1;
+      const uint32_t b = nodeArray[A].m_linkIdx;
 
-      // Case 2
-      if(uint32_t_max == nextSectionStart)
+      // Common stuff for case 2 & 3
+      if (b > start)
       {
-        prev = currSectionStart;
+        prev = A;
         foundPrevAndNext = true;
       }
-      // Case 3
-      else if(nextSectionStart > start)
+
+      if(uint32_t_max != b)// Case 3 only
       {
-        prev = pairedIdx;
-        next = nextSectionStart;
+        next = b;
         foundPrevAndNext = true;
       }
     }
@@ -270,7 +268,7 @@ struct FreeResourcetable
         // a......An.....N...
         // [a,A] is the trailing touching section, [n,N] is the freed
         // section, either N is the last start or there is a section after
-        // N, not touching n,N or there isn't a section at all after [n,N]
+        // N, not touching [n,N] or there isn't a section at all after [n,N]
         // i need to merge a to N
         const uint32_t A = prev;
         const uint32_t a = A + 1 - m_freeNodes[A].m_size;
@@ -291,8 +289,8 @@ struct FreeResourcetable
         // ...n......Na.....A
         // [a,A] is the leading touching section, [n,N] is the freed
         // section, either n is the first start or there is a section
-        // before n, not touching n,N or there isn't a section at all
-        // before n,N
+        // before n, not touching [n,N] or there isn't a section at all
+        // before [n,N]
         // i need to merge n to a
         const uint32_t n = start;
         const uint32_t N = end;
