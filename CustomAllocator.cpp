@@ -97,18 +97,10 @@ struct FreeResourcetable
   // Returns the prev section end idx and next section start idx
   // if we were to inser a section starting at 'start' length 'len'
   std::tuple<Size, Size> getPrevAndNext(Node* nodeArray,
-                                                Size start,
-                                                Size end,
-                                                Size firstIdx)
+                                        Size start,
+                                        Size end,
+                                        Size firstIdx)
   {
-    // Find the prev and next for this section if it is to be
-    // added in the metaArray
-    // Following cases are anticipated:
-
-
-
-
-
     // Case 0(no section is there yet):
     // Before:
     // arary begin |.........................| array end
@@ -125,10 +117,10 @@ struct FreeResourcetable
     }
     // Case 1:
     // Before:
-    // arary begin |...........a........A.....| array end
+    // arary begin |...........a........A.....
     //
     // After:
-    // arary begin |...........a........A.....| array end
+    // arary begin |...........a........A.....
     //               ↑     ↑
     //             start  end
     // So that prev = Size_max, next = a
@@ -138,7 +130,7 @@ struct FreeResourcetable
     }
 
 
-    // Following cases ay occur in the loop below:
+    // Following cases may occur in the loop below:
     // ==================================================
     // Case 2:
     // Before:
@@ -173,7 +165,7 @@ struct FreeResourcetable
       const Size b = nodeArray[A].m_linkIdx;
 
       // It's either case 2 or 3 this is Common stuff to be done
-      // for case 2 & 3
+      // for cases 2 & 3
       if (b > start)
       {
         prev = A;
@@ -213,7 +205,6 @@ struct FreeResourcetable
         Node& nextNode = m_occupiedNodes[next];
         nextNode.m_linkIdx = start;
       }
-
 
       if (start < m_firstOccupiedIdx)
       {
@@ -317,7 +308,7 @@ struct FreeResourcetable
         m_freeNodes[end] = {next, len};
       }
 
-      // Possible only in caes 2 & 3
+      // Possible only in cases 2 & 3
       if (start < m_firstFreeIdx)
       {
           m_firstFreeIdx = start;
