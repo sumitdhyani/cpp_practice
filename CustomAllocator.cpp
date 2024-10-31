@@ -37,7 +37,7 @@ struct FreeResourcetable
   }
     
   
-  std::optional<Size> getNextFreeIdx(Size len) 
+  std::optional<Size> getNextFreeIdx(Size len)
   { 
       // No free section available
       if (Size_max == m_firstFreeIdx)
@@ -47,14 +47,15 @@ struct FreeResourcetable
       
       for(Size currFreeIndex = m_firstFreeIdx;
           currFreeIndex != Size_max;
-          currFreeIndex = m_freeNodes[currFreeIndex + m_freeNodes[currFreeIndex].m_size -1].m_linkIdx)
+          currFreeIndex = m_freeNodes[currFreeIndex +
+                          m_freeNodes[currFreeIndex].m_size -1].m_linkIdx)
       {
           const Node& currNode = m_freeNodes[currFreeIndex];
           const Size pairedIdx = currFreeIndex + currNode.m_size - 1;
           const Node& pairedNode = m_freeNodes[pairedIdx];
 
           if (currNode.m_size >= len)
-          { 
+          {
               shrink(m_freeNodes,
                      currNode.m_linkIdx,
                      pairedNode.m_linkIdx,
@@ -103,7 +104,11 @@ struct FreeResourcetable
     // Find the prev and next for this section if it is to be
     // added in the metaArray
     // Following cases are anticipated:
-    // ==================================================
+    
+    
+    
+
+
     // Case 0(no section is there yet):
     // Before:
     // arary begin |.........................| array end
@@ -114,7 +119,10 @@ struct FreeResourcetable
     //               start    end
     // So that prev = next = Size_max
     //
-    // ==================================================
+    if (Size_max == firstIdx)
+    {
+      return {Size_max, Size_max};
+    }
     // Case 1:
     // Before:
     // arary begin |...........a........A.....| array end
@@ -124,7 +132,13 @@ struct FreeResourcetable
     //               ↑     ↑
     //             start  end
     // So that prev = Size_max, next = a
-    //
+    else if (start < firstIdx)
+    {
+      return {Size_max, firstIdx};
+    }
+    
+    
+    // Following cases ay occur in the loop below:
     // ==================================================
     // Case 2:
     // Before:
@@ -134,7 +148,7 @@ struct FreeResourcetable
     // ...a.....A...............| array end
     //             ↑       ↑
     //           start    end
-    // So that prev = A, next = Size_max 
+    // So that prev = A, next = Size_max
     //
     // ==================================================
     // Case 3:
@@ -146,19 +160,6 @@ struct FreeResourcetable
     //             ↑       ↑
     //           start    end
     // So that prev = A, next = b
-
-
-    // Case 0
-    if (Size_max == firstIdx)
-    {
-      return {Size_max, Size_max};
-    }
-    // Case 1 
-    else if (start < firstIdx)
-    {
-      return {Size_max, firstIdx};
-    }
-
     Size prev = Size_max;
     Size next = Size_max;
     
@@ -171,7 +172,8 @@ struct FreeResourcetable
       const Size A = a + nodeArray[a].m_size - 1;
       const Size b = nodeArray[A].m_linkIdx;
 
-      // Common stuff for case 2 & 3
+      // It's either case 2 or 3 this is Common stuff to be done
+      // for case 2 & 3
       if (b > start)
       {
         prev = A;
@@ -228,13 +230,14 @@ struct FreeResourcetable
                                                   end,
                                                   m_firstFreeIdx);
       
-      // If start == 0, then '(node.m_linkIdx == start - 1)' will evaluate to true
+      // If start == 0, then '(node.m_linkIdx == start - 1)' evaluates to true
       // as m_linkIdxis set to Size_max in case there is no trailing section
       // even though this node is not joined with the any section, so an
       // extra check '(0 != start)' is added to prevent this
       const bool isJoinedWithPrev = (0 != start) && (prev == start - 1);
 
-      // If size == end + 1, there is no trailing section, let alone a touching trailing section
+      // If size == end + 1, there is no trailing section,
+      // let alone a touching trailing section
       const bool isJoinedWithNext = (size > end + 1) && (end + 1 == next);
       
       if (isJoinedWithPrev && isJoinedWithNext)
@@ -308,8 +311,8 @@ struct FreeResourcetable
       { 
         // Case 3
         // ...n......N.....
-        // [n,N] is the freed section, it has no touching section either from the 
-        // back or the front
+        // [n,N] is the freed section, it has no touching section
+        // either from the rear or the front
         m_freeNodes[start] = {prev, len};
         m_freeNodes[end] = {next, len};
       }
