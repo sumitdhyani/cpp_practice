@@ -165,17 +165,19 @@ struct FreeResourcetable
       const Size A = a + nodeArray[a].m_size - 1;
       const Size b = nodeArray[A].m_linkIdx;
 
-      // It's either case 2 or 3 this is Common stuff to be done
+      
       // for cases 2 & 3
       if (b > start)
       {
+        // This is Common stuff to be done for cases 2 and 3
         prev = A;
-        foundPrevAndNext = true;
-      }
-
-      if(Size_max != b)// Case 3 only
-      {
-        next = b;
+        
+        // Case 3 only
+        if(Size_max != b)
+        {
+          next = b;
+        }
+        
         foundPrevAndNext = true;
       }
     }
@@ -204,7 +206,7 @@ struct FreeResourcetable
       if (Size_max != next)
       {
         Node& nextNode = m_occupiedNodes[next];
-        nextNode.m_linkIdx = start;
+        nextNode.m_linkIdx = end;
       }
 
       if (start < m_firstOccupiedIdx)
@@ -276,6 +278,11 @@ struct FreeResourcetable
         // of any section
         memset(&m_freeNodes[A], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[n], 0, sizeof(m_freeNodes[0]));
+        
+        if (next != Size_max)
+        {
+            m_freeNodes[next].m_linkIdx = end;
+        }
       }
       else if (isJoinedWithNext)
       {
@@ -298,6 +305,11 @@ struct FreeResourcetable
         // of any section
         memset(&m_freeNodes[N], 0, sizeof(m_freeNodes[0]));
         memset(&m_freeNodes[a], 0, sizeof(m_freeNodes[0]));
+        
+        if (prev != Size_max)
+        {
+            m_freeNodes[prev].m_linkIdx = start;
+        }
       }
       else
       {
@@ -307,6 +319,16 @@ struct FreeResourcetable
         // either from the rear or the front
         m_freeNodes[start] = {prev, len};
         m_freeNodes[end] = {next, len};
+        
+        if (prev != Size_max)
+        {
+            m_freeNodes[prev].m_linkIdx = start;
+        }
+        
+        if (next != Size_max)
+        {
+            m_freeNodes[next].m_linkIdx = end;
+        }
       }
 
       // Possible only in cases 2 & 3
@@ -356,7 +378,14 @@ struct FreeResourcetable
         //The currNode is moved forward by 'len'
         const Size newPos = startIdx + len;
         Node& newNode = nodeArr[newPos];
-        newNode = startNode;
+        
+        // If newNode is endNode, and the section collapses into a single node,
+        // we don't need to set newNode at all, endNode alone represents a section
+        // of length 1
+        if(sectionSize != len + 1)
+        {
+            newNode = startNode;
+        }
         memset(&startNode, 0, sizeof(startNode));
 
         if(startIdx == firstIdx)
