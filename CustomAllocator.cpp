@@ -227,6 +227,9 @@ struct FreeResourcetable
                                                   end,
                                                   m_firstFreeIdx);
 
+      m_freeNodes[start] = {prev, len};
+      m_freeNodes[end] = {next, len};
+
       // If start == 0, then '(node.m_linkIdx == start - 1)' evaluates to true
       // as m_linkIdxis set to Size_max in case there is no trailing section
       // even though this node is not joined with the any section, so an
@@ -284,8 +287,7 @@ struct FreeResourcetable
         
         if (next != Size_max)
         {
-            m_freeNodes[end].m_linkIdx = next;
-            m_freeNodes[next].m_linkIdx = end;
+            m_freeNodes[next].m_linkIdx = N;
         }
       }
       else if (isJoinedWithNext)
@@ -312,8 +314,7 @@ struct FreeResourcetable
         
         if (prev != Size_max)
         {
-            m_freeNodes[start].m_linkIdx = prev;
-            m_freeNodes[prev].m_linkIdx = start;
+            m_freeNodes[prev].m_linkIdx = n;
         }
       }
       else
@@ -322,9 +323,6 @@ struct FreeResourcetable
         // ...n......N.....
         // [n,N] is the freed section, it has no touching section
         // either from the rear or the front
-        m_freeNodes[start] = {prev, len};
-        m_freeNodes[end] = {next, len};
-        
         if (prev != Size_max)
         {
             m_freeNodes[prev].m_linkIdx = start;
