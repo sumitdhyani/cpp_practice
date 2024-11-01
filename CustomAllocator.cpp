@@ -70,7 +70,7 @@ struct FreeResourcetable
             addOccupiedSection(currFreeIndex,
                                 len);
 
-            return currFreeIndex/2;
+            return currFreeIndex >> 1;
         }
     }
 
