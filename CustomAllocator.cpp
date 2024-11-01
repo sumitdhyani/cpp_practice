@@ -6,7 +6,7 @@
 
 typedef uint32_t Size;
 
-template<Size bookSize>
+template<Size size>
 struct FreeResourcetable
 {
   private:
@@ -20,6 +20,7 @@ struct FreeResourcetable
 
   public:
   constexpr static const Size Size_max = Size(-1);
+  constexpr static const Size bookSize = size * 2;
 
   FreeResourcetable() :
     m_freeNodes({0,0}),
@@ -40,43 +41,45 @@ struct FreeResourcetable
 
   std::optional<Size> getNextFreeIdx(Size len)
   {
-      // No free section available
-      if (Size_max == m_firstFreeIdx)
-      {
-          return std::nullopt;
-      }
+    len *= 2;
+    // No free section available
+    if (Size_max == m_firstFreeIdx)
+    {
+        return std::nullopt;
+    }
 
-      for(Size currFreeIndex = m_firstFreeIdx;
-          currFreeIndex != Size_max;
-          currFreeIndex = m_freeNodes[currFreeIndex +
-                          m_freeNodes[currFreeIndex].m_size -1].m_linkIdx)
-      {
-          const Node& currNode = m_freeNodes[currFreeIndex];
-          const Size pairedIdx = currFreeIndex + currNode.m_size - 1;
-          const Node& pairedNode = m_freeNodes[pairedIdx];
+    for(Size currFreeIndex = m_firstFreeIdx;
+        currFreeIndex != Size_max;
+        currFreeIndex = m_freeNodes[currFreeIndex +
+                        m_freeNodes[currFreeIndex].m_size -1].m_linkIdx)
+    {
+        const Node& currNode = m_freeNodes[currFreeIndex];
+        const Size pairedIdx = currFreeIndex + currNode.m_size - 1;
+        const Node& pairedNode = m_freeNodes[pairedIdx];
 
-          if (currNode.m_size >= len)
-          {
-              shrink(m_freeNodes,
-                     currNode.m_linkIdx,
-                     pairedNode.m_linkIdx,
-                     currFreeIndex,
-                     pairedIdx,
-                     len,
-                     m_firstFreeIdx);
+        if (currNode.m_size >= len)
+        {
+            shrink(m_freeNodes,
+                    currNode.m_linkIdx,
+                    pairedNode.m_linkIdx,
+                    currFreeIndex,
+                    pairedIdx,
+                    len,
+                    m_firstFreeIdx);
 
-              addOccupiedSection(currFreeIndex,
-                                 len);
+            addOccupiedSection(currFreeIndex,
+                                len);
 
-              return currFreeIndex;
-          }
-      }
+            return currFreeIndex/2;
+        }
+    }
 
-      return std::nullopt;
+    return std::nullopt;
   }
 
-  void freeIdx(const Size idx)
+  void freeIdx(Size idx)
   {
+    idx *= 2;
     const Size sectionSize  = m_occupiedNodes[idx].m_size;
     const Size prevIdx      = m_occupiedNodes[idx].m_linkIdx;
     const Size nextIdx      = m_occupiedNodes[idx + sectionSize - 1].m_linkIdx;
@@ -281,6 +284,7 @@ struct FreeResourcetable
         
         if (next != Size_max)
         {
+            m_freeNodes[end].m_linkIdx = next;
             m_freeNodes[next].m_linkIdx = end;
         }
       }
@@ -308,6 +312,7 @@ struct FreeResourcetable
         
         if (prev != Size_max)
         {
+            m_freeNodes[start].m_linkIdx = prev;
             m_freeNodes[prev].m_linkIdx = start;
         }
       }
@@ -408,6 +413,7 @@ struct FreeResourcetable
   Size m_firstFreeIdx;
   Size m_firstOccupiedIdx;
 };
+
 
 
 
