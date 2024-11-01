@@ -6,7 +6,7 @@
 
 typedef uint32_t Size;
 
-template<Size size>
+template<Size bookSize>
 struct FreeResourcetable
 {
   private:
@@ -28,13 +28,13 @@ struct FreeResourcetable
     m_firstOccupiedIdx(Size_max)
   {
       Node& firstFreeNode = m_freeNodes[0];
-      Node& lastFreeNode = m_freeNodes[size-1];
+      Node& lastFreeNode = m_freeNodes[bookSize-1];
 
       firstFreeNode.m_linkIdx =
       lastFreeNode.m_linkIdx = Size_max;
 
       firstFreeNode.m_size =
-      lastFreeNode.m_size = size;
+      lastFreeNode.m_size = bookSize;
   }
 
 
@@ -232,7 +232,7 @@ struct FreeResourcetable
 
       // If size == end + 1, there is no trailing section,
       // let alone a touching trailing section
-      const bool isJoinedWithNext = (size > end + 1) && (end + 1 == next);
+      const bool isJoinedWithNext = (bookSize > end + 1) && (end + 1 == next);
 
       if (isJoinedWithPrev && isJoinedWithNext)
       {
@@ -350,6 +350,11 @@ struct FreeResourcetable
       Node& endNode = nodeArr[endIdx];
       Size sectionSize = startNode.m_size;
 
+      // Case 0
+      //       |------- len = sectionSize ----|
+      // ......n..............................N....
+      //       ↑                              ↑
+      //    startIdx                        endIdx
       if (sectionSize == len)
       {
         if (prevIdx != Size_max)
@@ -370,6 +375,11 @@ struct FreeResourcetable
           firstIdx = nextIdx;
         }
       }
+      // Case 1
+      //       |------- len < sectionSize ----|
+      // ......n....................................N....
+      //       ↑                                    ↑
+      //    startIdx                             endIdx
       else
       {
         startNode.m_size =
@@ -378,14 +388,8 @@ struct FreeResourcetable
         //The currNode is moved forward by 'len'
         const Size newPos = startIdx + len;
         Node& newNode = nodeArr[newPos];
+        newNode = startNode;
         
-        // If newNode is endNode, and the section collapses into a single node,
-        // we don't need to set newNode at all, endNode alone represents a section
-        // of length 1
-        if(sectionSize != len + 1)
-        {
-            newNode = startNode;
-        }
         memset(&startNode, 0, sizeof(startNode));
 
         if(startIdx == firstIdx)
@@ -399,8 +403,8 @@ struct FreeResourcetable
       }
   }
 
-  Node m_freeNodes[size];
-  Node m_occupiedNodes[size];
+  Node m_freeNodes[bookSize];
+  Node m_occupiedNodes[bookSize];
   Size m_firstFreeIdx;
   Size m_firstOccupiedIdx;
 };
