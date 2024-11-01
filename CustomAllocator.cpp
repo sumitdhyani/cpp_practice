@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <tuple>
 #include <optional>
+#include <cstring>
 
 typedef uint32_t Size;
 
@@ -331,12 +332,12 @@ struct FreeResourcetable
       {
         if (prevIdx != Size_max)
         {
-          nodeArr[prevIdx].m_linkId = nextIdx;
+          nodeArr[prevIdx].m_linkIdx = nextIdx;
         }
 
         if (nextIdx != Size_max)
         {
-          nodeArr[nextIdx].m_linkId = prevIdx;
+          nodeArr[nextIdx].m_linkIdx = prevIdx;
         }
 
         memset(&startNode, 0, sizeof(startNode));
