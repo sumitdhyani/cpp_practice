@@ -78,8 +78,8 @@ struct FreeResourcetable
   void freeIdx(const Size idx)
   {
     const Size sectionSize  = m_occupiedNodes[idx].m_size;
-    const Size prevIdx      = m_occupiedNodes[idx].m_linkId;
-    const Size nextIdx      = m_occupiedNodes[idx + sectionSize - 1].m_linkId;
+    const Size prevIdx      = m_occupiedNodes[idx].m_linkIdx;
+    const Size nextIdx      = m_occupiedNodes[idx + sectionSize - 1].m_linkIdx;
 
     shrink(m_occupiedNodes,
             prevIdx,
@@ -246,8 +246,8 @@ struct FreeResourcetable
         const Size c = next;
         const Size C = N + m_freeNodes[c].m_size;
 
-        m_freeNodes[a].size =
-        m_freeNodes[C].size = C + 1 - a;
+        m_freeNodes[a].m_size =
+        m_freeNodes[C].m_size = C + 1 - a;
 
         // memset A,n,N and c to 0 as they are no longer
         // extremities of any section
