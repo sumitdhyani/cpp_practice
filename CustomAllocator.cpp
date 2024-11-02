@@ -86,10 +86,8 @@ struct FreeResourcetable
 
   // Returns the prev section end idx and next section start idx
   // if we were to inser a section starting at 'start' length 'len'
-  std::tuple<Size, Size> getPrevAndNext(Node* nodeArray,
-                                        Size start,
-                                        Size end,
-                                        Size firstIdx)
+  std::tuple<Size, Size> getPrevAndNext(Size start,
+                                        Size end)
   {
     // Case 0(no section is there yet):
     // Before:
@@ -101,7 +99,7 @@ struct FreeResourcetable
     //               start    end
     // So that prev = next = Size_max
     //
-    if (Size_max == firstIdx)
+    if (Size_max == m_firstFreeIdx)
     {
       return {Size_max, Size_max};
     }
@@ -114,9 +112,9 @@ struct FreeResourcetable
     //               ↑     ↑
     //             start  end
     // So that prev = Size_max, next = a
-    else if (start < firstIdx)
+    else if (start < m_firstFreeIdx)
     {
-      return {Size_max, firstIdx};
+      return {Size_max, m_firstFreeIdx};
     }
 
 
@@ -146,13 +144,13 @@ struct FreeResourcetable
     Size next = Size_max;
 
     bool foundPrevAndNext = false;
-    for (Size a = firstIdx;
+    for (Size a = m_firstFreeIdx;
          !foundPrevAndNext && a != Size_max;
          // Set it to the start of nextSection
-         a = nodeArray[a + nodeArray[a].m_size - 1].m_linkIdx)
+         a = m_freeNodes[a + m_freeNodes[a].m_size - 1].m_linkIdx)
     {
-      const Size A = a + nodeArray[a].m_size - 1;
-      const Size b = nodeArray[A].m_linkIdx;
+      const Size A = a + m_freeNodes[a].m_size - 1;
+      const Size b = m_freeNodes[A].m_linkIdx;
 
       
       // for cases 2 & 3
@@ -178,10 +176,8 @@ struct FreeResourcetable
                       const Size len)
   {
       const Size end = start + len - 1;
-      const auto [prev, next] = getPrevAndNext(m_freeNodes,
-                                                  start,
-                                                  end,
-                                                  m_firstFreeIdx);
+      const auto [prev, next] = getPrevAndNext(start,
+                                               end);
 
       m_freeNodes[start] = {prev, len};
       m_freeNodes[end] = {next, len};
