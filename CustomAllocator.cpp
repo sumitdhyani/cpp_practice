@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <tuple>
 #include <optional>
-#include <cstring>
 
 typedef uint32_t Size;
 
@@ -216,10 +215,10 @@ struct FreeResourcetable
 
         // memset A,n,N and c to 0 as they are no longer
         // extremities of any section
-        memset(&m_freeNodes[A], 0, sizeof(m_freeNodes[0]));
-        memset(&m_freeNodes[n], 0, sizeof(m_freeNodes[0]));
-        memset(&m_freeNodes[N], 0, sizeof(m_freeNodes[0]));
-        memset(&m_freeNodes[c], 0, sizeof(m_freeNodes[0]));
+        m_freeNodes[A] = 
+        m_freeNodes[n] =
+        m_freeNodes[N] =
+        m_freeNodes[c] = {0,0};
       }
       else if (isJoinedWithPrev)
       {
@@ -239,8 +238,8 @@ struct FreeResourcetable
 
         // memset A and n to 0 as they are no longer extremities
         // of any section
-        memset(&m_freeNodes[A], 0, sizeof(m_freeNodes[0]));
-        memset(&m_freeNodes[n], 0, sizeof(m_freeNodes[0]));
+        m_freeNodes[A] = 
+        m_freeNodes[n] = {0,0};
         
         if (next != Size_max)
         {
@@ -266,8 +265,8 @@ struct FreeResourcetable
 
         // memset N and a to 0 as they are no longer extremities
         // of any section
-        memset(&m_freeNodes[N], 0, sizeof(m_freeNodes[0]));
-        memset(&m_freeNodes[a], 0, sizeof(m_freeNodes[0]));
+        m_freeNodes[N] =
+        m_freeNodes[a] = {0,0};
         
         if (prev != Size_max)
         {
@@ -327,8 +326,8 @@ struct FreeResourcetable
           nodeArr[nextIdx].m_linkIdx = prevIdx;
         }
 
-        memset(&startNode, 0, sizeof(startNode));
-        memset(&endNode, 0, sizeof(endNode));
+        startNode = 
+        endNode = {0,0};
 
         if (startIdx == firstIdx)
         {
@@ -350,7 +349,7 @@ struct FreeResourcetable
         Node& newNode = nodeArr[newPos];
         newNode = startNode;
         
-        memset(&startNode, 0, sizeof(startNode));
+        startNode = {0,0};
 
         if(startIdx == firstIdx)
         {
