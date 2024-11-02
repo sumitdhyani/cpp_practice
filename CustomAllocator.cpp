@@ -145,7 +145,7 @@ struct FreeResourcetable
 
     bool foundPrevAndNext = false;
     for (Size a = m_firstFreeIdx;
-         !foundPrevAndNext && a != Size_max;
+         !foundPrevAndNext;
          // Set it to the start of nextSection
          a = m_freeNodes[a + m_freeNodes[a].m_size - 1].m_linkIdx)
     {
