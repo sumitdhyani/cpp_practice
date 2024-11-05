@@ -1,10 +1,12 @@
 #include <cstdlib>
 #include <cstdint>
-#include <tuple>
 #include <optional>
 
 typedef uint32_t Size;
 const Size Size_max = (Size)-1;
+
+// MSB set to 1, this will reduce the max possible elements that can be managed from
+// ~4B to ~2B for a 32 bit integer 
 constexpr const Size SectionStartMarker = Size(1) << (sizeof(Size) * 8 - 1);
 constexpr const Size SectionInfoRemover = ~SectionStartMarker;
 
@@ -16,11 +18,9 @@ struct SectionArray
   T operator[](const Size idx) const
   {
     const Size val = m_arr[idx];
-    return !val?
-              0:
-              val & SectionStartMarker?
-                val & SectionInfoRemover:
-                0;
+    return  val & SectionStartMarker?
+              val & SectionInfoRemover:
+              0;
   }
 
   private:
@@ -32,7 +32,7 @@ class SegmentTree
 {
 private:
     Size  m_tree[4*size];
-    const SectionArray<T, size> m_arr;  // original array, memory to be owned by the creator of the object
+    const SectionArray<T, size> m_arr;
 
     // Helper function to build the tree
     void buildTree(Size node, Size start, Size end)
@@ -136,7 +136,7 @@ struct FreeResourcetable
   FreeResourcetable() :
     m_freeSegments({size & SectionStartMarker}),// 1st elements as 'size' and rest as 0
     m_OccupiedSegments({0}),
-    m_segmentTree(m_freeSegments)
+    m_segmentTree(SectionArray<Size, size>(m_freeSegments))
   {
   }
 
@@ -146,17 +146,18 @@ struct FreeResourcetable
     Size longestSectionLen = m_freeSegments[idx];
     if (longestSectionLen >= len)
     {
-      m_freeSegments[idx + len] = longestSectionLen - len;
-      m_freeSegments[idx + longestSectionLen - 1] = longestSectionLen - len;
+      const Size newLen = longestSectionLen - len;
+      m_freeSegments[idx + len] =
+      m_freeSegments[idx + longestSectionLen - 1] = newLen;
       m_freeSegments[idx] = 0;
 
-      if (longestSectionLen > len)
+      m_segmentTree.update(idx, 0);
+      if (newLen > 0)
       {
-        m_freeSegments[idx + len] &= SectionStartMarker;
+        m_freeSegments[idx + len] |= SectionStartMarker;
+        m_segmentTree.update(idx + len, newLen);
       }
 
-      m_segmentTree.update(idx, 0);
-      m_segmentTree.update(idx + len, longestSectionLen - len);
       m_OccupiedSegments[idx] = len;
       return idx;
     }
@@ -168,14 +169,56 @@ struct FreeResourcetable
 
   void freeIdx(Size idx)
   {
-    // To be implemented
+    const Size sectionLen = m_OccupiedSegments[idx];
+    m_OccupiedSegments[idx] = 0;
+
+    m_freeSegments[idx] =
+    m_freeSegments[idx + sectionLen - 1] = sectionLen;
+
+    m_freeSegments[idx] |= SectionStartMarker;
+
+    adjustFreeSection(idx);
+  }
+
+  void adjustFreeSection(Size idx)
+  {
+    Size sectionEnd = idx + (m_freeSegments[idx] & SectionInfoRemover) - 1;
+    if (idx > 0 && m_freeSegments[idx-1])
+    {
+      // s......es.....e...
+      // a      An     N   
+      // a,A is the trailing touching section, n,N is the freed
+      // section, either N is the last start or there is a section after
+      // N, not touching n,N or there isn't a section at all after n,N
+      // i need to merge a to N
+      const Size A = idx - 1;
+      const Size a = A + 1 - m_freeSegments[A];
+      const Size n = idx;
+      const Size N = n + (m_freeSegments[n] & SectionInfoRemover) - 1;
+
+      const Size mergedLen = m_freeSegments[N] + m_freeSegments[A];
+
+      m_freeSegments[a] =
+      m_freeSegments[N] = mergedLen;
+      m_freeSegments[a] |= SectionStartMarker;
+
+      m_freeSegments[A] =
+      m_freeSegments[n] = 0;
+
+      m_segmentTree.update(n, 0);
+      m_segmentTree.update(a, mergedLen);
+    }
+
+    if (size > sectionEnd + 1 && m_freeSegments[sectionEnd + 1])
+    {
+      adjustFreeSection(sectionEnd + 1);
+    }
   }
 
   private:
   Size m_freeSegments[size];
   Size m_OccupiedSegments[size];
   SegmentTree<Size, size> m_segmentTree;
-  
 };
 
 int main()
