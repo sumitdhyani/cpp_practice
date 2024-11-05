@@ -4,16 +4,13 @@
 
 typedef uint32_t Size;
 const Size Size_max = (Size)-1;
-
-// MSB set to 1, this will reduce the max possible elements that can be managed from
-// ~4B to ~2B for a 32 bit integer 
 constexpr const Size SectionStartMarker = Size(1) << (sizeof(Size) * 8 - 1);
 constexpr const Size SectionInfoRemover = ~SectionStartMarker;
 
 template<class T, Size size>
 struct SectionArray
 {
-  SectionArray(T* arr) : m_arr(arr) {}
+  SectionArray(T* const arr) : m_arr(arr) {}
 
   T operator[](const Size idx) const
   {
@@ -32,7 +29,7 @@ class SegmentTree
 {
 private:
     Size  m_tree[4*size];
-    const SectionArray<T, size> m_arr;
+    const SectionArray<T, size> m_arr;  // original array, memory to be owned by the creator of the object
 
     // Helper function to build the tree
     void buildTree(Size node, Size start, Size end)
@@ -111,9 +108,8 @@ private:
 
 public:
     // Constructor to initialize the segment tree
-    SegmentTree(Size* arr) : m_arr(arr)
+    SegmentTree(const SectionArray<Size, size> arr) : m_arr(arr)
     {
-      m_arr = arr;
       buildTree(0, 0, size - 1);
     }
 
