@@ -5,13 +5,34 @@
 
 typedef uint32_t Size;
 const Size Size_max = (Size)-1;
+constexpr const Size SectionStartMarker = Size(1) << (sizeof(Size) * 8 - 1);
+constexpr const Size SectionInfoRemover = ~SectionStartMarker;
 
-template <Size size>
+template<class T, Size size>
+struct SectionArray
+{
+  SectionArray(T* arr) : m_arr(arr) {}
+
+  T operator[](const Size idx) const
+  {
+    const Size val = m_arr[idx];
+    return !val?
+              0:
+              val & SectionStartMarker?
+                val & SectionInfoRemover:
+                0;
+  }
+
+  private:
+  T* m_arr;
+};
+
+template <class T, Size size>
 class SegmentTree
 {
 private:
     Size  m_tree[4*size];
-    Size* m_arr;  // original array, memory to be owned by the creator of the object
+    const SectionArray<T, size> m_arr;  // original array, memory to be owned by the creator of the object
 
     // Helper function to build the tree
     void buildTree(Size node, Size start, Size end)
@@ -113,7 +134,7 @@ template <Size size>
 struct FreeResourcetable
 {
   FreeResourcetable() :
-    m_freeSegments({size}),// 1st elements as 'size' and rest as 0
+    m_freeSegments({size & SectionStartMarker}),// 1st elements as 'size' and rest as 0
     m_OccupiedSegments({0}),
     m_segmentTree(m_freeSegments)
   {
@@ -125,13 +146,18 @@ struct FreeResourcetable
     Size longestSectionLen = m_freeSegments[idx];
     if (longestSectionLen >= len)
     {
+      m_freeSegments[idx + len] = longestSectionLen - len;
+      m_freeSegments[idx + longestSectionLen - 1] = longestSectionLen - len;
       m_freeSegments[idx] = 0;
-      Size newIdx = idx + len;
-      Size newSectionLen = longestSectionLen - len;
-      m_freeSegments[newIdx] = newSectionLen;
+
+      if (longestSectionLen > len)
+      {
+        m_freeSegments[idx + len] &= SectionStartMarker;
+      }
+
       m_segmentTree.update(idx, 0);
-      m_segmentTree.update(newIdx, newSectionLen);
-      m_OccupiedSegments[newIdx] = len;
+      m_segmentTree.update(idx + len, longestSectionLen - len);
+      m_OccupiedSegments[idx] = len;
       return idx;
     }
     else
@@ -142,16 +168,13 @@ struct FreeResourcetable
 
   void freeIdx(Size idx)
   {
-    Size sectionLen = m_freeSegments[idx];
-    m_freeSegments[idx] = 0;
-    m_OccupiedSegments[idx] = sectionLen;
-    m_segmentTree.update(idx, sectionLen);
+    // To be implemented
   }
 
   private:
   Size m_freeSegments[size];
   Size m_OccupiedSegments[size];
-  SegmentTree<size> m_segmentTree;
+  SegmentTree<Size, size> m_segmentTree;
   
 };
 
