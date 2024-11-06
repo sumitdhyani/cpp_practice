@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <optional>
+#include <functional>
 
 typedef uint32_t Size;
 const Size Size_max = (Size)-1;
@@ -28,98 +29,100 @@ template <class T, Size size>
 class SegmentTree
 {
 private:
-    Size  m_tree[4*size];
-    const SectionArray<T, size> m_arr;  // original array, memory to be owned by the creator of the object
+    Size  m_tree[2*size - 1];
+    std::function<T(const Size)> m_fetchValueAtIdx;//Fetch value at an idx in the array
 
-    // Helper function to build the tree
-    void buildTree(Size node, Size start, Size end)
+    void build(Size node, Size start, Size end)
     {
-      if (start == end)
+      if(start == end)
       {
         m_tree[node] = start;
       }
       else
       {
-        Size mid = (start + end) / 2;
-        buildTree(2 * node + 1, start, mid);
-        buildTree(2 * node + 2, mid + 1, end);
-        // Store the index with the maximum value between the left and right subtrees
-        Size leftIndex = m_tree[2 * node + 1];
-        Size rightIndex = m_tree[2 * node + 2];
-        m_tree[node] = (m_arr[leftIndex] > m_arr[rightIndex]) ? leftIndex : rightIndex;
+        const Size mid = (start + end) / 2;
+        const Size leftChild = node * 2 + 1;
+        const Size rightChild = leftChild + 1;
+
+        build(leftChild, start, mid);
+        build(rightChild, mid + 1, end);
+
+        m_tree[node] = m_fetchValueAtIdx(m_tree[leftChild]) > m_fetchValueAtIdx(m_tree[rightChild]) ?
+                        m_tree[leftChild]:
+                        m_tree[rightChild];
       }
     }
 
-    // Helper function for range maximum query (returns the index)
-    Size rangeMaxQuery(Size node, Size start, Size end, Size l, Size r)
+    Size maxInRange(Size node, Size start, Size end, Size l, Size r)
     {
       if (r < start || l > end) {
-        // Range is completely outside the current segment
-        return Size_max; // Return an invalid index
+        return Size_max;
       }
       if (l <= start && end <= r) {
-        // Range is completely inside the current segment
         return m_tree[node];
       }
-      // Partial overlap: check both left and right subtrees
+
       Size mid = (start + end) / 2;
-      Size leftIndex = rangeMaxQuery(2 * node + 1, start, mid, l, r);
-      Size rightIndex = rangeMaxQuery(2 * node + 2, mid + 1, end, l, r);
+      const Size leftChild = node * 2 + 1;
+      const Size rightChild = leftChild + 1;
+      Size leftIndex = maxInRange(leftChild, start, mid, l, r);
+      Size rightIndex = maxInRange(rightChild, mid + 1, end, l, r);
 
       if (Size_max == leftIndex)
       {
-        return rightIndex;
+        return m_fetchValueAtIdx(rightIndex);
       }
       else if (Size_max == rightIndex)
       {
-        return leftIndex;
+        return m_fetchValueAtIdx(leftIndex);
       }
       else
       {
-        return (m_arr[leftIndex] > m_arr[rightIndex]) ? leftIndex : rightIndex;
+        Size leftMax = m_fetchValueAtIdx(leftIndex);
+        Size rightMax = m_fetchValueAtIdx(rightIndex);
+        return leftMax > rightMax ? leftIndex : rightIndex;
       }
     }
 
-    // Helper function for point update
     void updateTree(Size node, Size start, Size end, Size idx, Size value)
     {
       if (start == end)
       {
-        // Leaf node: update the value in the original array
         m_tree[node] = idx;
       }
       else
       {
         Size mid = (start + end) / 2;
+        Size leftChild = 2 * node + 1;
+        Size rightChild = leftChild + 1;
         if (idx <= mid)
         {
-            updateTree(2 * node + 1, start, mid, idx, value);
+            updateTree(leftChild, start, mid, idx, value);
         }
         else
         {
-            updateTree(2 * node + 2, mid + 1, end, idx, value);
+            updateTree(rightChild, mid + 1, end, idx, value);
         }
-        // Update the current node after updating subtrees
-        Size leftIndex = m_tree[2 * node + 1];
-        Size rightIndex = m_tree[2 * node + 2];
-        m_tree[node] = (m_arr[leftIndex] > m_arr[rightIndex]) ? leftIndex : rightIndex;
+
+        Size leftMaxIdx = m_tree[leftChild];
+        Size rightMaxIdx = m_tree[rightChild];
+        m_tree[node] = (m_fetchValueAtIdx(leftMaxIdx) > m_fetchValueAtIdx(rightMaxIdx)) ?
+                        leftMaxIdx :
+                        rightMaxIdx;
       }
     }
 
 public:
-    // Constructor to initialize the segment tree
     SegmentTree(const SectionArray<Size, size> arr) : m_arr(arr)
     {
-      buildTree(0, 0, size - 1);
+      build(0, 0, size - 1);
     }
 
-    // Public method to perform range maximum query (returns the index)
-    Size rangeMax(Size l, Size r)
+    Size maxInrange(Size l, Size r)
     {
-      return rangeMaxQuery(0, 0, size - 1, l, r);
+      return maxInRange(0, 0, size - 1, l, r);
     }
 
-    // Public method to update an element at a specific index
     void update(Size idx, Size value)
     {
       updateTree(0, 0, size - 1, idx, value);
@@ -134,11 +137,12 @@ struct FreeResourcetable
     m_OccupiedSegments({0}),
     m_segmentTree(SectionArray<Size, size>(m_freeSegments))
   {
+    m_freeSegments[size-1] = size;
   }
 
   std::optional<Size> getFreeIdx(Size len)
   {
-    Size idx = m_segmentTree.rangeMax(0, size - 1);
+    Size idx = m_segmentTree.maxInrange(0, size - 1);
     Size longestSectionLen = m_freeSegments[idx];
     if (longestSectionLen >= len)
     {
