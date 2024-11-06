@@ -30,9 +30,10 @@ class SegmentTree
 {
 private:
     Size  m_tree[2*size - 1];
+    typedef std::function<T(const Size)> ArrayValueFetcher;
     std::function<T(const Size)> m_fetchValueAtIdx;//Fetch value at an idx in the array
 
-    void build(Size node, Size start, Size end)
+    void build(Size node, Size start, Size end, const ArrayValueFetcher& m_fetchValueAtIdx)
     {
       if(start == end)
       {
@@ -44,8 +45,8 @@ private:
         const Size leftChild = node * 2 + 1;
         const Size rightChild = leftChild + 1;
 
-        build(leftChild, start, mid);
-        build(rightChild, mid + 1, end);
+        build(leftChild, start, mid, m_fetchValueAtIdx);
+        build(rightChild, mid + 1, end, m_fetchValueAtIdx);
 
         m_tree[node] = m_fetchValueAtIdx(m_tree[leftChild]) > m_fetchValueAtIdx(m_tree[rightChild]) ?
                         m_tree[leftChild]:
@@ -53,7 +54,7 @@ private:
       }
     }
 
-    Size maxInRange(Size node, Size start, Size end, Size l, Size r)
+    Size maxInRange(Size node, Size start, Size end, Size l, Size r, const ArrayValueFetcher& m_fetchValueAtIdx)
     {
       if (r < start || l > end) {
         return Size_max;
@@ -65,8 +66,8 @@ private:
       Size mid = (start + end) / 2;
       const Size leftChild = node * 2 + 1;
       const Size rightChild = leftChild + 1;
-      Size leftIndex = maxInRange(leftChild, start, mid, l, r);
-      Size rightIndex = maxInRange(rightChild, mid + 1, end, l, r);
+      Size leftIndex = maxInRange(leftChild, start, mid, l, r, m_fetchValueAtIdx);
+      Size rightIndex = maxInRange(rightChild, mid + 1, end, l, r, m_fetchValueAtIdx);
 
       if (Size_max == leftIndex)
       {
@@ -84,7 +85,7 @@ private:
       }
     }
 
-    void updateTree(Size node, Size start, Size end, Size idx, Size value)
+    void updateTree(Size node, Size start, Size end, Size idx, Size value, const ArrayValueFetcher& m_fetchValueAtIdx)
     {
       if (start == end)
       {
@@ -113,19 +114,19 @@ private:
     }
 
 public:
-    SegmentTree(const SectionArray<Size, size> arr) : m_arr(arr)
+    SegmentTree(const SectionArray<Size, size> arr, const ArrayValueFetcher& m_fetchValueAtIdx)
     {
-      build(0, 0, size - 1);
+      build(0, 0, size - 1, m_fetchValueAtIdx);
     }
 
-    Size maxInrange(Size l, Size r)
+    Size maxInrange(Size l, Size r, const ArrayValueFetcher& m_fetchValueAtIdx)
     {
-      return maxInRange(0, 0, size - 1, l, r);
+      return maxInRange(0, 0, size - 1, l, r, m_fetchValueAtIdx);
     }
 
-    void update(Size idx, Size value)
+    void update(Size idx, Size value, const ArrayValueFetcher& m_fetchValueAtIdx)
     {
-      updateTree(0, 0, size - 1, idx, value);
+      updateTree(0, 0, size - 1, idx, value, m_fetchValueAtIdx);
     }
 };
 
