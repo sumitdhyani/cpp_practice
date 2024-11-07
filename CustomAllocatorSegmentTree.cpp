@@ -8,23 +8,6 @@ const Size Size_max = (Size)-1;
 constexpr const Size SectionStartMarker = Size(1) << (sizeof(Size) * 8 - 1);
 constexpr const Size SectionInfoRemover = ~SectionStartMarker;
 
-template<class T, Size size>
-struct SectionArray
-{
-  SectionArray(T* const arr) : m_arr(arr) {}
-
-  T operator[](const Size idx) const
-  {
-    const Size val = m_arr[idx];
-    return  val & SectionStartMarker?
-              val & SectionInfoRemover:
-              0;
-  }
-
-  private:
-  T* m_arr;
-};
-
 template <class T, Size size>
 class SegmentTree
 {
@@ -32,7 +15,10 @@ private:
     Size  m_tree[2*size - 1];
     typedef std::function<T(const Size)> ArrayValueFetcher;
 
-    void build(Size node, Size start, Size end, const ArrayValueFetcher& arrIdxFetcher)
+    void build(const Size node,
+                const Size start,
+                Size end,
+                const ArrayValueFetcher& arrIdxFetcher)
     {
       if(start == end)
       {
@@ -55,18 +41,20 @@ private:
 
     Size maxInRange(Size node, Size start, Size end, Size l, Size r, const ArrayValueFetcher& arrIdxFetcher)
     {
-      if (r < start || l > end) {
+      if (r < start || l > end)
+      {
         return Size_max;
       }
-      if (l <= start && end <= r) {
+      else if (l <= start && end <= r)
+      {
         return m_tree[node];
       }
 
-      Size mid = (start + end) / 2;
+      const Size mid = (start + end) / 2;
       const Size leftChild = node * 2 + 1;
       const Size rightChild = leftChild + 1;
-      Size leftIndex = maxInRange(leftChild, start, mid, l, r, arrIdxFetcher);
-      Size rightIndex = maxInRange(rightChild, mid + 1, end, l, r, arrIdxFetcher);
+      const Size leftIndex = maxInRange(leftChild, start, mid, l, r, arrIdxFetcher);
+      const Size rightIndex = maxInRange(rightChild, mid + 1, end, l, r, arrIdxFetcher);
 
       if (Size_max == leftIndex)
       {
@@ -78,13 +66,18 @@ private:
       }
       else
       {
-        Size leftMax = arrIdxFetcher(leftIndex);
-        Size rightMax = arrIdxFetcher(rightIndex);
+        const Size leftMax = arrIdxFetcher(leftIndex);
+        const Size rightMax = arrIdxFetcher(rightIndex);
         return leftMax > rightMax ? leftIndex : rightIndex;
       }
     }
 
-    void updateTree(Size node, Size start, Size end, Size idx, Size value, const ArrayValueFetcher& arrIdxFetcher)
+    void updateTree(const Size node,
+                    const Size start,
+                    const Size end,
+                    const Size idx,
+                    const Size value,
+                    const ArrayValueFetcher& arrIdxFetcher)
     {
       if (start == end)
       {
@@ -92,9 +85,9 @@ private:
       }
       else
       {
-        Size mid = (start + end) / 2;
-        Size leftChild = 2 * node + 1;
-        Size rightChild = leftChild + 1;
+        const Size mid = (start + end) / 2;
+        const Size leftChild = 2 * node + 1;
+        const Size rightChild = leftChild + 1;
         if (idx <= mid)
         {
             updateTree(leftChild, start, mid, idx, value);
@@ -104,8 +97,8 @@ private:
             updateTree(rightChild, mid + 1, end, idx, value);
         }
 
-        Size leftMaxIdx = m_tree[leftChild];
-        Size rightMaxIdx = m_tree[rightChild];
+        const Size leftMaxIdx = m_tree[leftChild];
+        const Size rightMaxIdx = m_tree[rightChild];
         m_tree[node] = (arrIdxFetcher(leftMaxIdx) > arrIdxFetcher(rightMaxIdx)) ?
                         leftMaxIdx :
                         rightMaxIdx;
@@ -118,12 +111,16 @@ public:
       build(0, 0, size - 1, arrIdxFetcher);
     }
 
-    Size maxInrange(Size l, Size r, const ArrayValueFetcher& arrIdxFetcher)
+    Size maxInrange(const Size l,
+                    const Size r,
+                    const ArrayValueFetcher& arrIdxFetcher)
     {
       return maxInRange(0, 0, size - 1, l, r, arrIdxFetcher);
     }
 
-    void update(Size idx, Size value, const ArrayValueFetcher& arrIdxFetcher)
+    void update(const Size idx,
+                const Size value,
+                const ArrayValueFetcher& arrIdxFetcher)
     {
       updateTree(0, 0, size - 1, idx, value, arrIdxFetcher);
     }
@@ -146,8 +143,8 @@ struct FreeResourcetable
 
   std::optional<Size> getFreeIdx(Size len)
   {
-    Size idx = m_segmentTree.maxInRange(0, size - 1);
-    Size longestSectionLen = m_freeSegments[idx];
+    const Size idx = m_segmentTree.maxInRange(0, size - 1);
+    const Size longestSectionLen = m_freeSegments[idx];
     if (longestSectionLen >= len)
     {
       const Size newLen = longestSectionLen - len;
@@ -228,12 +225,15 @@ struct FreeResourcetable
 };
 
 #include <iostream>
+#include <stdlib.h>
 
-int main()
+int main(int argc, char** argv)
 {
+  const int start = atoi(argv[1]);
+  const int end = atoi(argv[2]);
   int arr[] = {6, 9, 4, 2, 7};
   const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
   SegmentTree<Size, 5> st(fetchIndexVal);
-  std::cout << arr[st.maxInrange(2, 3, fetchIndexVal)] << std::endl;
+  std::cout << arr[st.maxInrange(start, end, fetchIndexVal)] << std::endl;
   return 0;
 }
