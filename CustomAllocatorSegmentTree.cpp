@@ -177,6 +177,7 @@ struct FreeResourcetable
     m_freeSegments[idx + sectionLen - 1] = sectionLen;
 
     m_freeSegments[idx] |= SectionStartMarker;
+    m_segmentTree.update(idx, sectionLen, );
 
     adjustFreeSection(idx);
   }
