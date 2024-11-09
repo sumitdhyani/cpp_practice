@@ -362,11 +362,3 @@ struct FreeResourcetable
   Size m_occupiedNodes[size];
   Size m_firstFreeIdx;
 };
-
-
-
-
-int main()
-{
-  return 0;
-}
