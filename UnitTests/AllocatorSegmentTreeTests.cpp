@@ -11,7 +11,7 @@ protected:
     // Function to initialize the SegmentTree with the array 'arr'
     virtual void SetUp() override {
         arr = {1, 5, 3, 7, 9, 2, 6, 4};
-        tree = new SegmentTree<int, 8>([&](uint32_t idx) { return arr[idx]; });
+        tree = new SegmentTree<int, 8>([&](uint32_t idx1, uint32_t idx2) { return arr[idx1] > arr[idx2]; });
         tree->build();
     }
 

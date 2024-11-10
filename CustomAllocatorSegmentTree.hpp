@@ -13,7 +13,7 @@ class SegmentTree
 {
 private:
     Size  m_tree[2*size - 1];
-    typedef std::function<T(const Size)> ArrayValueFetcher;
+    typedef std::function<bool(const Size, const Size)> ArrayValueFetcher;
     const ArrayValueFetcher m_arrIdxFetcher;
 
     void build(const Size node,
@@ -33,7 +33,7 @@ private:
         build(leftChild, start, mid);
         build(rightChild, mid + 1, end);
 
-        m_tree[node] = m_arrIdxFetcher(m_tree[leftChild]) > m_arrIdxFetcher(m_tree[rightChild]) ?
+        m_tree[node] = m_arrIdxFetcher(m_tree[leftChild], m_tree[rightChild]) ?
                         m_tree[leftChild]:
                         m_tree[rightChild];
       }
@@ -70,9 +70,9 @@ private:
       }
       else
       {
-        const Size leftMax = m_arrIdxFetcher(leftIndex);
-        const Size rightMax = m_arrIdxFetcher(rightIndex);
-        return leftMax > rightMax ? leftIndex : rightIndex;
+        return m_arrIdxFetcher(leftIndex, rightIndex)?
+                leftIndex :
+                rightIndex;
       }
     }
 
@@ -102,7 +102,7 @@ private:
 
         const Size leftMaxIdx = m_tree[leftChild];
         const Size rightMaxIdx = m_tree[rightChild];
-        m_tree[node] = (m_arrIdxFetcher(leftMaxIdx) > m_arrIdxFetcher(rightMaxIdx)) ?
+        m_tree[node] = m_arrIdxFetcher(leftMaxIdx, rightMaxIdx) ?
                         leftMaxIdx :
                         rightMaxIdx;
       }
@@ -239,17 +239,17 @@ struct FreeResourcetable
   const UpdateValue m_updateValue;
 };
 
-#include <iostream>
-#include <stdlib.h>
+// #include <iostream>
+// #include <stdlib.h>
 
-int main(int argc, char** argv)
-{
-  const int start = atoi(argv[1]);
-  const int end = atoi(argv[2]);
-  int arr[] = {6, 9, 4, 2, 7};
-  const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
-  SegmentTree<Size, 5> st(fetchIndexVal);
-  st.build();
-  std::cout << arr[st.maxInrange(start, end)] << std::endl;
-  return 0;
-}
+// int main(int argc, char** argv)
+// {
+//   const int start = atoi(argv[1]);
+//   const int end = atoi(argv[2]);
+//   int arr[] = {6, 9, 4, 2, 7};
+//   const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
+//   SegmentTree<Size, 5> st(fetchIndexVal);
+//   st.build();
+//   std::cout << arr[st.maxInrange(start, end)] << std::endl;
+//   return 0;
+// }
