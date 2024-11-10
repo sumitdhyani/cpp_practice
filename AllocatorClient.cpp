@@ -64,16 +64,19 @@ public:
         using other = FreeListAllocator<U, size>;
     };
 
-    FreeListAllocator() = default;
+    FreeListAllocator()
+    {
+      m_freePtrList= new FreeResourcetable<size>();
+    }
 
     ~FreeListAllocator() = default;
 
     T* allocate(std::size_t n) {
-      std::cout << "Requested "<< n << " objects" << std::endl;
-      if (auto idx = m_freePtrList.getNextFreeIdx(n); idx.has_value())
+      //std::cout << "Requested "<< n << " objects" << std::endl;
+      if (auto idx = m_freePtrList->getNextFreeIdx(n); idx.has_value())
       {
         T* ret = reinterpret_cast<T*>(m_pool + idx.value() * sizeof(T));
-        std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
+        //std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
         return ret;
       }
       else
@@ -84,8 +87,8 @@ public:
 
     void deallocate(T* p, std::size_t n) noexcept {
       const std::size_t idx = p - reinterpret_cast<T*>(m_pool);
-      std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
-      m_freePtrList.freeIdx(idx);
+      //std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
+      m_freePtrList->freeIdx(idx);
     }
 
     bool operator==(const FreeListAllocator& other) const noexcept {
@@ -98,38 +101,71 @@ public:
 
 private:
     char m_pool[size*sizeof(T)];
-    FreeResourcetable<size> m_freePtrList;
+    FreeResourcetable<size>* m_freePtrList;
 };
+
+class Temple
+{
+  char str[256];
+};
+
+
+constexpr Size getPoolSize(const Size size)
+{
+  Size currMask = Size(1) >> (sizeof(Size) - 3);
+  while(currMask && !(currMask & size))
+  {
+    currMask = currMask >> 1;
+  }
+
+  return currMask << 2;
+}
+
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+
+#define TWO_POWER 13
+#define POOL_SIZE Size(1)<< (TWO_POWER + 1)
+
+#define NUM_ELEMENTS (Size(1) << (TWO_POWER - 1))
+
 
 int main()
 {
-
   {
-    std::vector<Sample, FreeListAllocator<Sample, 1024>> vec;
 
-    for(int i = 0; i < 100; i++)
+    auto start_time = Clock::now();
+    std::vector<Temple, FreeListAllocator<Temple, POOL_SIZE >> vec;
+    
+    for(int i = 0; i < NUM_ELEMENTS; i++)
     {
-      std::cout << "Pushing " << i << "th element to the vector" << std::endl;
-      vec.push_back(Sample());
+      //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
+      vec.push_back(Temple());
     }
+    
+    auto end_time = Clock::now();
 
-    std::cout << "totalDefaultConstructions: " << totalDefaultConstructions << std::endl;
-    std::cout << "totalCopyConstructions: " << totalCopyConstructions << std::endl;
-    std::cout << "totalAssignments: " << totalAssignments << std::endl;
-    std::cout << "totalMoves: " << totalMoves << std::endl;
+    std::cout << "For objects of size " << sizeof(Temple) <<", in a vector, cost to insert " << NUM_ELEMENTS <<" elements with Custom allocator:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
   }
 
-  // {
-  //   std::set<int, std::less<int>, FreeListAllocator<int, 1024>> set;
-  //   for(int i = 0; i < 100; i++)
-  //   {
-  //     std::cout << "Pushing " << i << " to the set" << std::endl;
-  //     set.insert(i);
-  //   }
+  {
 
-  // }
+    auto start_time = Clock::now();
+    std::vector<Temple> vec;
+    vec.reserve(NUM_ELEMENTS);
+    
+    for(int i = 0; i < NUM_ELEMENTS; i++)
+    {
+      //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
+      vec.push_back(Temple());
+    }
 
-  std::cout << "Programm exiting..." << std::endl << std::endl << std::endl;
+    auto end_time = Clock::now();
+
+    std::cout << "For objects of size " << sizeof(Temple) <<", in a vector, cost to insert " << NUM_ELEMENTS <<" elements with Default allocator:   "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
+  }
+
+  std::cout << std::endl << "Programm exiting..." << std::endl << std::endl << std::endl;
 
   return 0;
 }

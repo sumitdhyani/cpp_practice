@@ -3,7 +3,7 @@
 #include <tuple>
 #include <optional>
 
-typedef std::size_t Size;
+typedef uint32_t Size;
 
 template<Size size>
 struct FreeResourcetable
