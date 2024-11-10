@@ -64,16 +64,13 @@ public:
         using other = FreeListAllocator<U, size>;
     };
 
-    FreeListAllocator()
-    {
-      m_freePtrList= new FreeResourcetable<size>();
-    }
+    FreeListAllocator() = default;
 
     ~FreeListAllocator() = default;
 
     T* allocate(std::size_t n) {
       //std::cout << "Requested "<< n << " objects" << std::endl;
-      if (auto idx = m_freePtrList->getNextFreeIdx(n); idx.has_value())
+      if (auto idx = m_freePtrList.getNextFreeIdx(n); idx.has_value())
       {
         T* ret = reinterpret_cast<T*>(m_pool + idx.value() * sizeof(T));
         //std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
@@ -88,7 +85,7 @@ public:
     void deallocate(T* p, std::size_t n) noexcept {
       const std::size_t idx = p - reinterpret_cast<T*>(m_pool);
       //std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
-      m_freePtrList->freeIdx(idx);
+      m_freePtrList.freeIdx(idx);
     }
 
     bool operator==(const FreeListAllocator& other) const noexcept {
@@ -101,13 +98,14 @@ public:
 
 private:
     char m_pool[size*sizeof(T)];
-    FreeResourcetable<size>* m_freePtrList;
+    FreeResourcetable<size> m_freePtrList;
 };
 
 class Temple
 {
   char str[256];
 };
+#define TWO_POWER 13
 
 
 constexpr Size getPoolSize(const Size size)
@@ -124,20 +122,17 @@ constexpr Size getPoolSize(const Size size)
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
 
-#define TWO_POWER 13
-#define POOL_SIZE Size(1)<< (TWO_POWER + 1)
+#define POOL_SIZE (Size(1) << (TWO_POWER + 1))
 
 #define NUM_ELEMENTS (Size(1) << (TWO_POWER - 1))
 
 
 int main()
 {
-  {
-
     auto start_time = Clock::now();
     std::vector<Temple, FreeListAllocator<Temple, POOL_SIZE >> vec;
     
-    for(int i = 0; i < NUM_ELEMENTS; i++)
+    for(Size i = 0; i < NUM_ELEMENTS; i++)
     {
       //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
       vec.push_back(Temple());
@@ -146,7 +141,6 @@ int main()
     auto end_time = Clock::now();
 
     std::cout << "For objects of size " << sizeof(Temple) <<", in a vector, cost to insert " << NUM_ELEMENTS <<" elements with Custom allocator:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
-  }
 
   {
 
@@ -154,7 +148,7 @@ int main()
     std::vector<Temple> vec;
     vec.reserve(NUM_ELEMENTS);
     
-    for(int i = 0; i < NUM_ELEMENTS; i++)
+    for(Size i = 0; i < NUM_ELEMENTS; i++)
     {
       //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
       vec.push_back(Temple());
