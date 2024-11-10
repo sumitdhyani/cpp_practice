@@ -135,21 +135,28 @@ public:
 template <Size size>
 struct FreeResourcetable
 {
-  FreeResourcetable() :
+  typedef std::function<Size(Size, Size)> FetchMaxValue;
+  typedef std::function<void(Size, Size)> UpdateValue;
+  typedef std::function<Size(Size)> GetValueAtIdx;
+  typedef std::function<std::tuple<FetchMaxValue, UpdateValue>(const GetValueAtIdx&)> GetSegmentTreeUtils;
+
+  FreeResourcetable(const GetSegmentTreeUtils& getSegmentTreeUtils) :
     m_freeSegments({size & SectionStartMarker}),// 1st elements as 'size' and rest as 0
-    m_OccupiedSegments({0}),
-    m_segmentTree([this](const Size idx){ 
+    m_OccupiedSegments({0})
+    
+  {
+    m_freeSegments[size-1] = size;
+    std::tie(m_fetchMaxValue, m_updateValue) =
+    getSegmentTreeUtils([this](const Size idx){ 
       return  m_freeSegments[idx] & SectionStartMarker ?
                 m_freeSegments[idx] & SectionInfoRemover :
                 0;
-    })
-  {
-    m_freeSegments[size-1] = size;
+    });
   }
 
   std::optional<Size> getFreeIdx(Size len)
   {
-    const Size idx = m_segmentTree.maxInRange(0, size - 1);
+    const Size idx = m_fetchMaxValue(0, size - 1);
     const Size longestSectionLen = m_freeSegments[idx];
     if (longestSectionLen >= len)
     {
@@ -157,12 +164,12 @@ struct FreeResourcetable
       m_freeSegments[idx] = 0;
       m_freeSegments[idx + longestSectionLen - 1] = newLen;
 
-      m_segmentTree.update(idx, 0);
+      m_updateValue(idx, 0);
       if (newLen > 0)
       {
         const Size newSectionStart = idx + len;
         m_freeSegments[newSectionStart] = newLen | SectionStartMarker;
-        m_segmentTree.update(newSectionStart, newLen);
+        m_updateValue(newSectionStart, newLen);
       }
 
       m_OccupiedSegments[idx] = len;
@@ -183,7 +190,7 @@ struct FreeResourcetable
     m_freeSegments[idx + sectionLen - 1] = sectionLen;
 
     m_freeSegments[idx] |= SectionStartMarker;
-    m_segmentTree.update(idx, sectionLen);
+    m_updateValue(idx, sectionLen);
 
     adjustFreeSection(idx);
   }
@@ -213,8 +220,8 @@ struct FreeResourcetable
       m_freeSegments[A] =
       m_freeSegments[n] = 0;
 
-      m_segmentTree.update(n, 0);
-      m_segmentTree.update(a, mergedLen);
+      m_updateValue(n, 0);
+      m_updateValue(a, mergedLen);
     }
 
     // If [n,N] had a neighouring section, let's name it [b,B], and [b,B] started immediately after N,
@@ -228,19 +235,21 @@ struct FreeResourcetable
   private:
   Size m_freeSegments[size];
   Size m_OccupiedSegments[size];
-  SegmentTree<Size, size> m_segmentTree;
+  const FetchMaxValue m_fetchMaxValue;
+  const UpdateValue m_updateValue;
 };
 
-// #include <iostream>
-// #include <stdlib.h>
+#include <iostream>
+#include <stdlib.h>
 
-// int main(int argc, char** argv)
-// {
-//   const int start = atoi(argv[1]);
-//   const int end = atoi(argv[2]);
-//   int arr[] = {6, 9, 4, 2, 7};
-//   const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
-//   SegmentTree<Size, 5> st(fetchIndexVal);
-//   std::cout << arr[st.maxInrange(start, end)] << std::endl;
-//   return 0;
-// }
+int main(int argc, char** argv)
+{
+  const int start = atoi(argv[1]);
+  const int end = atoi(argv[2]);
+  int arr[] = {6, 9, 4, 2, 7};
+  const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
+  SegmentTree<Size, 5> st(fetchIndexVal);
+  st.build();
+  std::cout << arr[st.maxInrange(start, end)] << std::endl;
+  return 0;
+}
