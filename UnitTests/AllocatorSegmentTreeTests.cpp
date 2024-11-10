@@ -61,6 +61,12 @@ TEST_F(SegmentTreeTest, EdgeCaseTest) {
 
     // Check out of range query (should not crash or throw)
     EXPECT_EQ(tree->maxInrange(8, 9), Size_max); // Out of bounds range
+    
+    // Partial out of bound range
+    EXPECT_EQ(tree->maxInrange(7, 8), 7);
+    EXPECT_EQ(tree->maxInrange(7, 9), 7);
+    EXPECT_EQ(tree->maxInrange(6, 8), 6);
+    EXPECT_EQ(tree->maxInrange(6, 9), 6);
 }
 
 // Main function for running the tests
