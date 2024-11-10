@@ -112,6 +112,10 @@ public:
     SegmentTree(const ArrayValueFetcher& arrIdxFetcher) : 
       m_arrIdxFetcher(arrIdxFetcher)
     {
+    }
+
+    void build()
+    {
       build(0, 0, size - 1);
     }
 
@@ -227,16 +231,16 @@ struct FreeResourcetable
   SegmentTree<Size, size> m_segmentTree;
 };
 
-//#include <iostream>
-//#include <stdlib.h>
-//
-//int main(int argc, char** argv)
-//{
-//  const int start = atoi(argv[1]);
-//  const int end = atoi(argv[2]);
-//  int arr[] = {6, 9, 4, 2, 7};
-//  const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
-//  SegmentTree<Size, 5> st(fetchIndexVal);
-//  std::cout << arr[st.maxInrange(start, end)] << std::endl;
-//  return 0;
-//}
+// #include <iostream>
+// #include <stdlib.h>
+
+// int main(int argc, char** argv)
+// {
+//   const int start = atoi(argv[1]);
+//   const int end = atoi(argv[2]);
+//   int arr[] = {6, 9, 4, 2, 7};
+//   const std::function<Size(const Size)> fetchIndexVal = [&arr](const Size idx){ return arr[idx]; };
+//   SegmentTree<Size, 5> st(fetchIndexVal);
+//   std::cout << arr[st.maxInrange(start, end)] << std::endl;
+//   return 0;
+// }

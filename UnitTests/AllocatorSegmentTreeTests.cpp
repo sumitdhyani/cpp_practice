@@ -12,6 +12,7 @@ protected:
     virtual void SetUp() override {
         arr = {1, 5, 3, 7, 9, 2, 6, 4};
         tree = new SegmentTree<int, 8>([&](uint32_t idx) { return arr[idx]; });
+        tree->build();
     }
 
     virtual void TearDown() override {
