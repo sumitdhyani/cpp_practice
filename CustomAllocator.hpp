@@ -181,116 +181,45 @@ struct FreeResourcetable
 
       m_freeNodes[start] = {prev, len};
       m_freeNodes[end] = {next, len};
-
-      // If start == 0, then '(node.m_linkIdx == start - 1)' evaluates to true
-      // as m_linkIdxis set to Size_max in case there is no trailing section
-      // even though this node is not joined with the any section, so an
-      // extra check '(0 != start)' is added to prevent this
-      const bool isJoinedWithPrev = (0 != start) && (prev == start - 1);
-
-      // If size == end + 1, there is no trailing section,
-      // let alone a touching trailing section
-      const bool isJoinedWithNext = (bookSize > end + 1) && (end + 1 == next);
-
-      if (isJoinedWithPrev && isJoinedWithNext)
-      {
-        // Case 0
-        // a......An.....Nc....C
-        // [a,A] is the trailing touching section, [c,C] is the leading
-        // touching section n,N is the freed section, i need to merge
-        // a to C
-        const Size A = prev;
-        const Size n = start;
-        const Size N = end;
-        const Size a = n - m_freeNodes[A].m_size;
-        const Size c = next;
-        const Size C = N + m_freeNodes[c].m_size;
-
-        m_freeNodes[a].m_size =
-        m_freeNodes[C].m_size = C + 1 - a;
-
-        // memset A,n,N and c to 0 as they are no longer
-        // extremities of any section
-        m_freeNodes[A] = 
-        m_freeNodes[n] =
-        m_freeNodes[N] =
-        m_freeNodes[c] = {0,0};
-      }
-      else if (isJoinedWithPrev)
-      {
-        // Case 1
-        // a......An.....N...
-        // [a,A] is the trailing touching section, [n,N] is the freed
-        // section, either N is the last start or there is a section after
-        // N, not touching [n,N] or there isn't a section at all after [n,N]
-        // i need to merge a to N
-        const Size A = prev;
-        const Size a = A + 1 - m_freeNodes[A].m_size;
-        const Size n = start;
-        const Size N = end;
-
-        m_freeNodes[a].m_size =
-        m_freeNodes[N].m_size = N + 1 - a;
-
-        // memset A and n to 0 as they are no longer extremities
-        // of any section
-        m_freeNodes[A] = 
-        m_freeNodes[n] = {0,0};
-        
-        if (next != Size_max)
-        {
-            m_freeNodes[next].m_linkIdx = N;
-        }
-      }
-      else if (isJoinedWithNext)
-      {
-        // Case 2
-        // ...n......Na.....A
-        // [a,A] is the leading touching section, [n,N] is the freed
-        // section, either n is the first start or there is a section
-        // before n, not touching [n,N] or there isn't a section at all
-        // before [n,N]
-        // i need to merge n to a
-        const Size n = start;
-        const Size N = end;
-        const Size a = next;
-        const Size A = a + m_freeNodes[a].m_size - 1;
-
-        m_freeNodes[n].m_size =
-        m_freeNodes[A].m_size = A + 1 - n;
-
-        // memset N and a to 0 as they are no longer extremities
-        // of any section
-        m_freeNodes[N] =
-        m_freeNodes[a] = {0,0};
-        
-        if (prev != Size_max)
-        {
-            m_freeNodes[prev].m_linkIdx = n;
-        }
-      }
-      else
-      {
-        // Case 3
-        // ...n......N.....
-        // [n,N] is the freed section, it has no touching section
-        // either from the rear or the front
-        if (prev != Size_max)
-        {
-            m_freeNodes[prev].m_linkIdx = start;
-        }
-        
-        if (next != Size_max)
-        {
-            m_freeNodes[next].m_linkIdx = end;
-        }
-      }
-
-      // Possible only in cases 2 & 3
+      mergeFreeSection(start, end, prev, next);
       if (start < m_firstFreeIdx)
       {
           m_firstFreeIdx = start;
       }
+  }
+
+  void mergeFreeSection(const Size start,
+                           const Size end,
+                           const Size prev,
+                           const Size next)
+  {
+    if (start > 0 && prev+1 == start)
+    {
+      // s......es.....e...
+      // a      An     N   
+      // a,A is the trailing touching section, n,N is the freed
+      // section, either N is the last start or there is a section after
+      // N, not touching n,N or there isn't a section at all after n,N
+      // i need to merge a to N
+      const Size A = start - 1;
+      const Size a = A + 1 - m_freeNodes[A].m_size;
+      const Size n = start;
+      const Size N = n + m_freeNodes[n].m_size - 1;
+
+      m_freeNodes[a].m_size =
+      m_freeNodes[N] = N - a + 1;
+
+      m_freeNodes[A] =
+      m_freeNodes[n] = {0,0};
+    }
+
+    // If [n,N] had a neighouring section, let's name it [b,B], and [b,B] started immediately after N,
+    // then repeat the step above for [b,B], this will result in max 1 recursive call
+    if (size > end + 1  && next == end + 1)
+    {
+      const Size nextSectionEnd = next + m_freeNodes[next] - 1;
+      mergeFreeSection(next, nextSectionEnd, end, m_freeNodes[nextSectionEnd].m_linkId);
+    }
   }
 
   void shrink(Node* nodeArr,
