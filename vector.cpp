@@ -2,6 +2,7 @@
 #include <cstring>
 #include <optional>
 #include <functional>
+#include <functional>
 
 struct vector
 {
@@ -62,12 +63,38 @@ struct vector
 
   void pop_back()
   {
-    if (m_size)
+    if(!m_size)
     {
-      --m_size;
+      return;
+    }
+
+    --m_size;
+    //There is no element now, delete the buffer and nullify the internal book
+    if (!m_size)
+    {
+      delete[] m_arr;
+      m_size = 0;
+      m_capacity = 0;
+    }
+    //Check if the no. of elements now is power of 2
+    else
+    {
+      for (uint32_t power = 1, exp = 1 >> power;
+           !(m_size & exp) && (power < sizeof(uint32_t) * 8);
+           exp >> 1, power++)
+      {
+        if (m_size & exp)
+        {
+          m_capacity = m_size;
+          uint32_t* tempBuff = new uint32_t[m_capacity];
+          memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_capacity);
+          delete[] m_arr;
+          m_arr = tempBuff; 
+          break;
+        }
+      }
     }
   }
-
 private:
   uint32_t  m_size;
   uint32_t  m_capacity;
