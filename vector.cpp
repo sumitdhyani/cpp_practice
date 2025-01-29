@@ -57,8 +57,11 @@ private:
 int main()
 {
   vector v;
-  v.push_back(2);
-  v.push_back(3);
+  for(uint32_t i = 0; i < 100; i++)
+  {
+    v.push_back(i);
+  }
+
   for (uint32_t i = 0; i < v.size(); i++)
   {
     std::cout << v[i] << std::endl;
