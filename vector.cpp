@@ -9,19 +9,19 @@ struct vector
   typedef std::optional<std::reference_wrapper<uint32_t>> optional_ref;
   typedef std::optional<std::reference_wrapper<const uint32_t>> optional_const_ref;
 
-  vector() : m_size(0), m_capacity(0) {}
+  vector() : m_size(0), m_capacity(0), m_arr(nullptr) {}
 
   void push_back(const uint32_t& val)
   {
     if(!m_capacity)
     {
       m_capacity = 1;
-      m_arr = new uint32_t[1];
+      m_arr = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t)));
     }
     else if (m_size == m_capacity)
     {
       m_capacity *= 2;
-      uint32_t* tempBuff = new uint32_t[m_capacity];
+      uint32_t* tempBuff = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t) * m_capacity));
       memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_capacity);
       delete[] m_arr;
       m_arr = tempBuff;
@@ -73,6 +73,7 @@ struct vector
     if (!m_size)
     {
       delete[] m_arr;
+      m_arr = nullptr;
       m_size = 0;
       m_capacity = 0;
     }
@@ -86,7 +87,7 @@ struct vector
         if (m_size & exp)
         {
           m_capacity = m_size;
-          uint32_t* tempBuff = new uint32_t[m_capacity];
+          uint32_t* tempBuff = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t) * m_capacity));
           memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_capacity);
           delete[] m_arr;
           m_arr = tempBuff; 
