@@ -1,8 +1,13 @@
 #include <stdint.h>
 #include <cstring>
+#include <optional>
+#include <functional>
 
 struct vector
 {
+  typedef std::optional<std::reference_wrapper<uint32_t>> optional_ref;
+  typedef std::optional<std::reference_wrapper<const uint32_t>> optional_const_ref;
+
   vector() : m_size(0), m_capacity(0) {}
 
   void push_back(const uint32_t& val)
@@ -35,14 +40,32 @@ struct vector
     return m_capacity;
   }
 
-  uint32_t& operator[](const uint32_t idx)
+  optional_ref operator[](const uint32_t idx)
   {
-    return m_arr[idx];
+    if (idx >= m_size)
+    {
+      return std::nullopt;
+    }
+
+    return std::ref(m_arr[idx]);
   }
 
-  const uint32_t& operator[](const uint32_t idx) const
+  optional_const_ref operator[](const uint32_t idx) const
   {
-    return m_arr[idx];
+    if (idx >= m_size)
+    {
+      return std::nullopt;
+    }
+
+    return std::cref(m_arr[idx]);
+  }
+
+  void pop_back()
+  {
+    if (m_size)
+    {
+      --m_size;
+    }
   }
 
 private:
@@ -64,7 +87,26 @@ int main()
 
   for (uint32_t i = 0; i < v.size(); i++)
   {
-    std::cout << v[i] << std::endl;
+    if (v[i])
+    {
+      std::cout << v[i].value() << std::endl;
+    }
+  }
+
+  std::cout << "Deleting!" << std::endl;
+
+  uint32_t size = v.size();
+  for(uint32_t i = 0; i < size; i++)
+  {
+    v.pop_back();
+  }
+
+  for (uint32_t i = 0; i < v.size(); i++)
+  {
+    if (v[i])
+    {
+      std::cout << v[i].value() << std::endl;
+    }
   }
   
   std::cout << "End!" << std::endl;
