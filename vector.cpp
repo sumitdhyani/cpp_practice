@@ -22,13 +22,12 @@ struct vector
     {
       m_capacity *= 2;
       uint32_t* tempBuff = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t) * m_capacity));
-      memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_capacity);
+      memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_size);
       delete[] m_arr;
       m_arr = tempBuff;
     }
 
-    ++m_size;
-    m_arr[m_size-1] = val;
+    m_arr[m_size++] = val;
   }
 
   uint32_t size()
@@ -88,7 +87,7 @@ struct vector
         {
           m_capacity = m_size;
           uint32_t* tempBuff = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t) * m_capacity));
-          memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_capacity);
+          memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_size);
           delete[] m_arr;
           m_arr = tempBuff; 
           break;
