@@ -36,6 +36,35 @@ struct vector
     new (m_arr + m_size - 1) T(val);
   }
 
+  template <class... Args>
+  void emplace_back(const Args&... args)
+  {
+    if(!m_capacity)
+    {
+      m_capacity = 1;
+      m_arr = reinterpret_cast<T*>(malloc(sizeof(T)));
+    }
+    else if (m_size == m_capacity)
+    {
+      m_capacity << 2;
+      T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
+      for (uint32_t i = 0 ; i < m_size; i++)
+      {
+        // Copy construction using placement new
+        new (tempBuff + i) T(m_arr[i]);
+
+        // Manually call the destructor as we didn't use new for performance reasons
+        m_arr[i].~T();
+      }
+
+      free(m_arr);
+      m_arr = tempBuff;
+    }
+
+    ++m_size;
+    new (m_arr + m_size - 1) T(args...);
+  }
+
   uint32_t size()
   {
     return m_size;
@@ -85,6 +114,7 @@ struct vector
       m_arr = tempBuff; 
     }
   }
+
 private:
   uint32_t  m_size;
   uint32_t  m_capacity;
@@ -129,12 +159,12 @@ int main()
   vector<X> v;
   for(uint32_t i = 0; i < 100; i++)
   {
-    v.push_back(X(i));
+    v.emplace_back(i);
   } 
 
   for (uint32_t i = 0; i < v.size(); i++)
   {
-    std::cout << v[i];
+    //std::cout << v[i];
   }
 
   std::cout << "Deleting!" << std::endl;
