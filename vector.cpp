@@ -1,33 +1,39 @@
 #include <stdint.h>
 #include <cstring>
-#include <optional>
-#include <functional>
 #include <functional>
 
+template <class T>
 struct vector
 {
-  typedef std::optional<std::reference_wrapper<uint32_t>> optional_ref;
-  typedef std::optional<std::reference_wrapper<const uint32_t>> optional_const_ref;
 
   vector() : m_size(0), m_capacity(0), m_arr(nullptr) {}
 
-  void push_back(const uint32_t& val)
+  void push_back(const T& val)
   {
     if(!m_capacity)
     {
       m_capacity = 1;
-      m_arr = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t)));
+      m_arr = reinterpret_cast<T*>(malloc(sizeof(T)));
     }
     else if (m_size == m_capacity)
     {
-      m_capacity *= 2;
-      uint32_t* tempBuff = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t) * m_capacity));
-      memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_size);
-      delete[] m_arr;
+      m_capacity << 2;
+      T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
+      for (uint32_t i = 0 ; i < m_size; i++)
+      {
+        // Copy construction using placement new
+        new (tempBuff + i) T(m_arr[i]);
+
+        // Manually call the destructor as we didn't use new for performance reasons
+        m_arr[i].~T();
+      }
+
+      free(m_arr);
       m_arr = tempBuff;
     }
 
-    m_arr[m_size++] = val;
+    ++m_size;
+    new (m_arr + m_size - 1) T(val);
   }
 
   uint32_t size()
@@ -40,24 +46,14 @@ struct vector
     return m_capacity;
   }
 
-  optional_ref operator[](const uint32_t idx)
+  T& operator[](const uint32_t idx)
   {
-    if (idx >= m_size)
-    {
-      return std::nullopt;
-    }
-
-    return std::ref(m_arr[idx]);
+    return m_arr[idx];
   }
 
-  optional_const_ref operator[](const uint32_t idx) const
+  const T& operator[](const uint32_t idx) const
   {
-    if (idx >= m_size)
-    {
-      return std::nullopt;
-    }
-
-    return std::cref(m_arr[idx]);
+    return m_arr[idx];
   }
 
   void pop_back()
@@ -71,53 +67,74 @@ struct vector
     //There is no element now, delete the buffer and nullify the internal book
     if (!m_size)
     {
-      delete[] m_arr;
+      free(m_arr);
       m_arr = nullptr;
       m_size = 0;
       m_capacity = 0;
     }
     //Check if the no. of elements now is power of 2
-    else
+    else if (m_size == m_capacity >> 1)
     {
-      for (uint32_t power = 1, exp = 1 >> power;
-           !(m_size & exp) && (power < sizeof(uint32_t) * 8);
-           exp >> 1, power++)
+      m_capacity = m_size;
+      T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
+      for (uint32_t i = 0; i < m_size; i++)
       {
-        if (m_size & exp)
-        {
-          m_capacity = m_size;
-          uint32_t* tempBuff = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t) * m_capacity));
-          memcpy(reinterpret_cast<void*>(tempBuff), reinterpret_cast<void*>(m_arr), sizeof(uint32_t)*m_size);
-          delete[] m_arr;
-          m_arr = tempBuff; 
-          break;
-        }
+        new (tempBuff + i) T(m_arr[i]); 
       }
+      free(m_arr);
+      m_arr = tempBuff; 
     }
   }
 private:
   uint32_t  m_size;
   uint32_t  m_capacity;
-  uint32_t* m_arr;
-
+  T* m_arr;
 };
 
 #include <iostream>
 
+struct X
+{
+  X(uint32_t x) {
+    _x = x;
+    std::cout << "param X::ctor" << std::endl;
+  }
+
+  X() {
+    _x = 0;
+    std::cout << "default X::ctor" << std::endl;
+  }
+
+  X(const X& x) {
+    _x = x._x;
+    std::cout << "copy X::ctor" << std::endl;
+  }
+
+  X(X&& x) {
+    _x = x._x;
+    x._x = 0;
+    std::cout << "move X::ctor" << std::endl;
+  }
+
+  uint32_t _x;
+};
+
+void operator <<(std::ostream& stream, const X& x)
+{
+  stream << x._x << std::endl;
+}
+
 int main()
 {
-  vector v;
+  vector<X> v;
   for(uint32_t i = 0; i < 100; i++)
   {
-    v.push_back(i);
-  }
+    v.push_back(X(i));
+  } 
 
   for (uint32_t i = 0; i < v.size(); i++)
   {
-    if (v[i])
-    {
-      std::cout << v[i].value() << std::endl;
-    }
+    std::cout << v[i];
   }
 
   std::cout << "Deleting!" << std::endl;
@@ -130,10 +147,7 @@ int main()
 
   for (uint32_t i = 0; i < v.size(); i++)
   {
-    if (v[i])
-    {
-      std::cout << v[i].value() << std::endl;
-    }
+    std::cout << v[i];
   }
   
   std::cout << "End!" << std::endl;
