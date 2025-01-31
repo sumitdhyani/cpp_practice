@@ -5,8 +5,116 @@
 template <class T>
 struct vector
 {
-
   vector() : m_size(0), m_capacity(0), m_arr(nullptr) {}
+
+  void reserve(uint32_t capacity)
+  {
+    if(capacity <= m_capacity)
+    {
+      return;
+    }
+
+    uint32_t shift = 0;    
+    while(1 << shift < capacity)
+    {
+      ++shift;
+    }
+
+    m_capacity = 1 << shift;
+    T* tempBuff = m_arr;
+    m_arr = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));;
+
+    if(!m_size)
+    {
+      return;
+    }
+
+    for (uint32_t i = 0 ; i < m_size; i++)
+    {
+      // Copy construction using placement new
+      new (m_arr + i) T(tempBuff[i]);
+
+      // Manually call the destructor as we didn't use new for performance reasons
+      tempBuff[i].~T();
+    }
+
+    free(tempBuff);
+  }
+
+  void clear()
+  {
+    cleanup_deallocate_nullify();
+  }
+
+  vector(vector&& other) : vector()
+  {
+    if (!other.m_capacity)
+    {
+      return;
+    }
+    
+    m_size = other.m_size;
+    m_capacity = other.m_capacity;
+    m_arr = other.m_arr;
+    
+    other.m_capacity = 0;
+    other.m_size = 0;
+    other.m_arr = nullptr;
+  }
+
+  vector(const vector& other) : vector()
+  {
+    if (!other.m_capacity)
+    {
+      return;
+    }
+
+    m_capacity = other.m_capacity;
+    m_size = other.m_size;
+    m_arr = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity)); 
+    for (uint32_t i = 0; i < m_size; i++)
+    {
+      new (m_arr+i) T(other[i]);
+    }
+  }
+
+  const vector& operator=(const vector& other)
+  {
+    if (m_size >= other.m_size)
+    {
+      cleanup();
+    }
+    else
+    {
+      cleanup_deallocate_nullify();
+      m_arr = reinterpret_cast<T*>(malloc(sizeof(T)*other.m_capacity));
+      m_capacity = other.m_capacity;
+    }
+
+    m_size = other.m_size;
+
+    for (uint32_t i = 0; i < m_size; i++)
+    {
+      new (m_arr+i) T(other[i]);
+    }
+
+    return *this;
+  }
+
+
+  const vector& operator=(const vector&& other)
+  {
+    cleanup_deallocate_nullify();
+    m_size = other.m_size;
+    m_capacity = other.m_capacity;
+    m_arr = other.m_arr;
+    
+    other.m_capacity = 0;
+    other.m_size = 0;
+    other.m_arr = nullptr;
+
+    return *this;
+  }
 
   void push_back(const T& val)
   {
@@ -17,7 +125,7 @@ struct vector
     }
     else if (m_size == m_capacity)
     {
-      m_capacity << 2;
+      m_capacity *= 2;
       T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
       for (uint32_t i = 0 ; i < m_size; i++)
       {
@@ -46,7 +154,7 @@ struct vector
     }
     else if (m_size == m_capacity)
     {
-      m_capacity << 2;
+      m_capacity *= 2;
       T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
       for (uint32_t i = 0 ; i < m_size; i++)
       {
@@ -65,14 +173,19 @@ struct vector
     new (m_arr + m_size - 1) T(args...);
   }
 
-  uint32_t size()
+  uint32_t size() const
   {
     return m_size;
   }
 
-  uint32_t capacity()
+  uint32_t capacity() const
   {
     return m_capacity;
+  }
+
+  bool empty()
+  {
+    return m_size != 0;
   }
 
   T& operator[](const uint32_t idx)
@@ -92,6 +205,7 @@ struct vector
       return;
     }
 
+    m_arr[m_size-1].~T();
     --m_size;
     //There is no element now, delete the buffer and nullify the internal book
     if (!m_size)
@@ -115,7 +229,41 @@ struct vector
     }
   }
 
+  ~vector()
+  {
+    clear();
+  }
+
 private:
+
+  void cleanup()
+  {
+    for (uint32_t i = 0; i < m_size; i++)
+    {
+      m_arr[i].~T();
+    }
+  }
+  
+  //Only to be called from destructor and assignment operators
+  void cleanup_deallocate_nullify()
+  {
+    if (!m_capacity)
+    {
+      return;
+    }
+
+    //Cleanup
+    cleanup();
+
+    // Deallocate
+    free(m_arr);
+
+    // Nullify
+    m_arr = nullptr;
+    m_size = 0;
+    m_capacity = 0;
+
+  }
   uint32_t  m_size;
   uint32_t  m_capacity;
   T* m_arr;
@@ -127,7 +275,7 @@ struct X
 {
   X(uint32_t x) {
     _x = x;
-    std::cout << "param X::ctor" << std::endl;
+    std::cout << "param X::ctor " << _x << std::endl;
   }
 
   X() {
@@ -137,13 +285,17 @@ struct X
 
   X(const X& x) {
     _x = x._x;
-    std::cout << "copy X::ctor" << std::endl;
+    std::cout << "copy X::ctor " << _x << std::endl;
   }
 
   X(X&& x) {
     _x = x._x;
     x._x = 0;
-    std::cout << "move X::ctor" << std::endl;
+    std::cout << "move X::ctor " << _x << std::endl;
+  }
+
+  ~X() {
+    std::cout << "X::dtor " << _x << std::endl;
   }
 
   uint32_t _x;
@@ -154,30 +306,46 @@ void operator <<(std::ostream& stream, const X& x)
   stream << x._x << std::endl;
 }
 
+template <class T>
+void printVector(const vector<T>& vec)
+{
+  for (uint32_t i = 0; i < vec.size(); i++)
+  {
+    std::cout << vec[i];
+  }
+}
+
 int main()
 {
   vector<X> v;
+  v.reserve(100);
+
   for(uint32_t i = 0; i < 100; i++)
   {
     v.emplace_back(i);
-  } 
-
-  for (uint32_t i = 0; i < v.size(); i++)
-  {
-    //std::cout << v[i];
   }
+
+  std::cout << "Printing v" << std::endl;
+
+  printVector(v);
+
+
+
+  vector<X> v2 = v;
 
   std::cout << "Deleting!" << std::endl;
 
-  uint32_t size = v.size();
-  for(uint32_t i = 0; i < size; i++)
-  {
-    v.pop_back();
-  }
+  v.clear();
+  // uint32_t size = v.size();
+  // for(uint32_t i = 0; i < size; i++)
+  // {
+  //   v.pop_back();
+  // }
 
-  for (uint32_t i = 0; i < v.size(); i++)
+  std::cout << "Printing v2" << std::endl;
+  for (uint32_t i = 0; i < v2.size(); i++)
   {
-    std::cout << v[i];
+    std::cout << v2[i];
   }
   
   std::cout << "End!" << std::endl;
