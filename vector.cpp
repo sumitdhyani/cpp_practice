@@ -275,7 +275,7 @@ struct X
 {
   X(uint32_t x) {
     _x = x;
-    std::cout << "param X::ctor " << _x << std::endl;
+    //std::cout << "param X::ctor " << _x << std::endl;
   }
 
   X() {
@@ -285,20 +285,21 @@ struct X
 
   X(const X& x) {
     _x = x._x;
-    std::cout << "copy X::ctor " << _x << std::endl;
+    //std::cout << "copy X::ctor " << _x << std::endl;
   }
 
   X(X&& x) {
     _x = x._x;
     x._x = 0;
-    std::cout << "move X::ctor " << _x << std::endl;
+    //std::cout << "move X::ctor " << _x << std::endl;
   }
 
   ~X() {
-    std::cout << "X::dtor " << _x << std::endl;
+    //std::cout << "X::dtor " << _x << std::endl;
   }
 
   uint32_t _x;
+  char str[100];
 };
 
 void operator <<(std::ostream& stream, const X& x)
@@ -315,39 +316,45 @@ void printVector(const vector<T>& vec)
   }
 }
 
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+
+#define NUM_ELEMENTS 1000000
+
 int main()
 {
-  vector<X> v;
-  v.reserve(100);
-
-  for(uint32_t i = 0; i < 100; i++)
   {
-    v.emplace_back(i);
+    auto start_time = Clock::now();
+    vector<X> vec;
+    //vec.reserve(NUM_ELEMENTS);
+    
+    for(uint32_t i = 0; i < NUM_ELEMENTS; i++)
+    {
+      //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
+      vec.push_back(X(i));
+    }
+    
+    auto end_time = Clock::now();
+
+    std::cout << "For objects of size " << sizeof(X) <<", in a custom vector,   cost to insert " << NUM_ELEMENTS <<" elements:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
   }
 
-  std::cout << "Printing v" << std::endl;
-
-  printVector(v);
-
-
-
-  vector<X> v2 = v;
-
-  std::cout << "Deleting!" << std::endl;
-
-  v.clear();
-  // uint32_t size = v.size();
-  // for(uint32_t i = 0; i < size; i++)
-  // {
-  //   v.pop_back();
-  // }
-
-  std::cout << "Printing v2" << std::endl;
-  for (uint32_t i = 0; i < v2.size(); i++)
   {
-    std::cout << v2[i];
+
+    auto start_time = Clock::now();
+    std::vector<X> vec;
+    //vec.reserve(NUM_ELEMENTS);
+    
+    for(uint32_t i = 0; i < NUM_ELEMENTS; i++)
+    {
+      //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
+      vec.push_back(X(i));
+    }
+
+    auto end_time = Clock::now();
+
+    std::cout << "For objects of size " << sizeof(X) <<", in a standard vector, cost to insert " << NUM_ELEMENTS <<" elements:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
   }
-  
-  std::cout << "End!" << std::endl;
+
   return 0;
 }
