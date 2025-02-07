@@ -11,57 +11,55 @@ struct shared_ptr
     nullify();
   }
 
-  shared_ptr(const nullptr_t& null)
+  shared_ptr(const nullptr_t& null) : shared_ptr()
+  {}
+
+  shared_ptr(T* ptr) : shared_ptr()
   {
-    shared_ptr();
-  }
-
-  shared_ptr(T* ptr)
-  {
-    if(ptr)
+    if (!ptr)
     {
-      m_ptr = ptr;
-
-      //Control block includes only the mutex and the reference counter
-      m_controlBlock = new char[sizeof(*m_mutex) + sizeof(*m_refCount)];
-      uint16_t offset = 0;
-
-      m_mutex = new (reinterpret_cast<decltype(m_mutex)>(m_controlBlock+offset)) std::mutex();
-      offset += sizeof(*m_mutex);
-
-      m_refCount = new (reinterpret_cast<decltype(m_refCount)>(m_controlBlock+offset)) uint32_t(1);
+      return;
     }
-    else
-    {
-      shared_ptr();
-    }
+
+    m_ptr = ptr;
+
+    //Control block includes only the mutex and the reference counter
+    m_controlBlock = new char[sizeof(*m_mutex) + sizeof(*m_refCount)];
+    uint16_t offset = 0;
+
+    m_mutex = new (reinterpret_cast<decltype(m_mutex)>(m_controlBlock+offset)) std::mutex();
+    offset += sizeof(*m_mutex);
+
+    m_refCount = new (reinterpret_cast<decltype(m_refCount)>(m_controlBlock+offset)) uint32_t(1);
   }
   
   template <class... Args>
-  shared_ptr(Args... args)
+  shared_ptr(Args... args) : shared_ptr()
   {
     // Control block includes the shared object, mutex and the reference
     // counter, this is the preferred way to create the shared_ptr as this involves
     // only 1 memory alocation and since m_ptr is a part of the control block,
     // this object will enjoy spatial locality and more cache friendly
-    try
-    {
+    
       m_controlBlock = reinterpret_cast<char*>(malloc(sizeof(T) + sizeof(*m_mutex) + sizeof(*m_refCount)));
       uint16_t offset = 0;
-    
-      m_ptr = new (reinterpret_cast<decltype(m_ptr)>(m_controlBlock+offset)) T(args...);
+      try
+      {
+        m_ptr = new (reinterpret_cast<decltype(m_ptr)>(m_controlBlock+offset)) T(args...);
+      }
+      catch(const std::exception& e)
+      {
+        free(m_controlBlock);
+        m_ptr = nullptr;
+        throw e;
+      }
+
       offset += sizeof(*m_ptr);
 
       m_mutex = new (reinterpret_cast<decltype(m_mutex)>(m_controlBlock+offset)) std::mutex();
       offset += sizeof(*m_mutex);
 
       m_refCount = new (reinterpret_cast<decltype(m_refCount)>(m_controlBlock+offset)) uint32_t(1);
-    }
-    catch(const std::exception& e)
-    {
-      free(m_controlBlock);
-      throw e;
-    }
   }
 
   operator bool() const
