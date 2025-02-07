@@ -1,5 +1,7 @@
 #include<stdint.h>
 #include<mutex>
+#include<cstdlib>
+
 
 template<class T>
 struct shared_ptr
