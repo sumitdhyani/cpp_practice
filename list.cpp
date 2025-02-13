@@ -4,22 +4,23 @@ template <class T>
 struct list
 {
   struct Node{
-    Node(const T& val) : m_val(val), m_next(nullptr)
+    Node(const T& val) : m_val(val), m_prev(nullptr), m_next(nullptr)
     {}
 
     template<class... Args>
-    Node(const Args&... args) : m_val(args...), m_next(nullptr)
+    Node(const Args&... args) : m_val(args...), m_prev(nullptr), m_next(nullptr)
     {}
 
-    Node(Node* next, const T& val) : m_val(val), m_next(next)
+    Node(Node* prev, Node* next, const T& val) : m_val(val), m_prev(prev), m_next(next)
     {}
 
     template<class... Args>
-    Node(Node* next, const Args&... args) : m_val(args...), m_next(next)
+    Node(Node* prev, Node* next, const Args&... args) : m_val(args...), m_prev(prev), m_next(next)
     {}
 
     T m_val;
     Node* m_next;
+    Node* m_prev;
   };
 
   struct iterator
@@ -121,7 +122,7 @@ struct list
   {
     if (m_start)
     {
-      m_end->m_next = new Node(val);
+      m_end->m_next = new Node(m_end, nullptr, val);
       m_end = m_end->m_next;
     }
     else
@@ -136,7 +137,7 @@ struct list
   {
     if (m_start)
     {
-      Node* newStart = new Node(m_start, val);
+      Node* newStart = new Node(nullptr, m_start, val);
       m_start = newStart;
     }
     else
@@ -152,7 +153,7 @@ struct list
   {
     if (m_start)
     {
-      m_end->m_next = new Node(args...);
+      m_end->m_next = new Node(m_end, (Node*)nullptr, args...);
       m_end = m_end->m_next;
     }
     else
@@ -168,7 +169,7 @@ struct list
   {
     if (m_start)
     {
-      Node* newStart = new Node(m_start, args...);
+      Node* newStart = new Node(nullptr, m_start, args...);
       m_start = newStart;
     }
     else
