@@ -6,12 +6,18 @@ struct list
   struct Node{
     Node(const T& val) : m_val(val), m_prev(nullptr), m_next(nullptr)
     {}
+    
+    Node(T&& val) : m_val(val), m_prev(nullptr), m_next(nullptr)
+    {}
 
     template<class... Args>
     Node(const Args&... args) : m_val(args...), m_prev(nullptr), m_next(nullptr)
     {}
 
     Node(Node* prev, Node* next, const T& val) : m_val(val), m_prev(prev), m_next(next)
+    {}
+
+    Node(Node* prev, Node* next, T&& val) : m_val(val), m_prev(prev), m_next(next)
     {}
 
     template<class... Args>
@@ -213,7 +219,7 @@ struct list
   {
     if (m_start)
     {
-      m_end->m_next = new Node(m_end, nullptr, val);
+      m_end->m_next = new Node(m_end, (Node*)nullptr, val);
       m_end = m_end->m_next;
     }
     else
@@ -225,6 +231,36 @@ struct list
   }
 
   void push_front(const T& val)
+  {
+    if (m_start)
+    {
+      Node* newStart = new Node(nullptr, m_start, val);
+      m_start = newStart;
+    }
+    else
+    {
+      m_start = m_end = new Node(val);
+    }
+
+    ++m_size;
+  }
+
+  void push_back(const T&& val)
+  {
+    if (m_start)
+    {
+      m_end->m_next = new Node(m_end, (Node*)nullptr, val);
+      m_end = m_end->m_next;
+    }
+    else
+    {
+      m_start = m_end = new Node(val);
+    }
+
+    ++m_size;
+  }
+
+  void push_front(const T&& val)
   {
     if (m_start)
     {
@@ -466,7 +502,7 @@ int main()
   list<X> l;
   for (uint32_t i = 0; i < 100; i++)
   {
-    l.emplace_back(i);
+    l.push_back(std::move(X(i)));
   }
 
   for (auto it = l.rbegin(); it != l.rend(); ++it)
