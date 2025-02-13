@@ -7,10 +7,16 @@ struct list
     Node(const T& val) : m_val(val), m_next(nullptr)
     {}
 
-    Node(const T& val, T* next) : Node(val)
-    {
-      m_next = next;
-    }
+    template<class... Args>
+    Node(const Args&... args) : m_val(args...), m_next(nullptr)
+    {}
+
+    Node(Node* next, const T& val) : m_val(val), m_next(next)
+    {}
+
+    template<class... Args>
+    Node(Node* next, const Args&... args) : m_val(args...), m_next(next)
+    {}
 
     T m_val;
     Node* m_next;
@@ -77,6 +83,8 @@ struct list
   list() : m_start(nullptr), m_end(nullptr), m_size(0)
   {}
 
+  
+
   iterator begin()
   {
     if (m_size)
@@ -128,12 +136,44 @@ struct list
   {
     if (m_start)
     {
-      Node* newStart = new Node(m_start);
+      Node* newStart = new Node(m_start, val);
       m_start = newStart;
     }
     else
     {
       m_start = m_end = new Node(val);
+    }
+
+    ++m_size;
+  }
+
+  template <class... Args>
+  void emplace_back(const Args&... args)
+  {
+    if (m_start)
+    {
+      m_end->m_next = new Node(args...);
+      m_end = m_end->m_next;
+    }
+    else
+    {
+      m_start = m_end = new Node(args...);
+    }
+
+    ++m_size;
+  }
+
+  template <class... Args>
+  void emplace_front(const Args&... args)
+  {
+    if (m_start)
+    {
+      Node* newStart = new Node(m_start, args...);
+      m_start = newStart;
+    }
+    else
+    {
+      m_start = m_end = new Node(args...);
     }
 
     ++m_size;
@@ -162,12 +202,52 @@ struct list
 
 #include <iostream>
 
+struct X
+{
+    X(uint32_t x)
+    {
+      _x = x;
+      std::cout << "param X::ctor " << _x << std::endl;
+    }
+
+    X()
+    {
+      _x = 0;
+      std::cout << "default X::ctor" << std::endl;
+    }
+
+    X(const X& x)
+    {
+      _x = x._x;
+      std::cout << "copy X::ctor " << _x << std::endl;
+    }
+
+    X(X&& x)
+    {
+      _x = x._x;
+      x._x = 0;
+      std::cout << "move X::ctor " << _x << std::endl;
+    }
+
+    ~X()
+    {
+      std::cout << "X::dtor " << _x << std::endl;
+    }
+    uint32_t _x;
+  };
+
+std::ostream& operator <<(std::ostream& stream, const X& x)
+{
+  stream << x._x;
+  return stream;
+}
+
 int main()
 {
-  list<uint32_t> l;
+  list<X> l;
   for (uint32_t i = 0; i < 100; i++)
   {
-    l.push_back(i);
+    l.emplace_back(i);
   }
 
   for (auto it = l.begin(); it != l.end(); ++it)
