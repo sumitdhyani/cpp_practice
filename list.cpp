@@ -24,6 +24,12 @@ struct list
     Node(Node* prev, Node* next, const Args&... args) : m_val(args...), m_prev(prev), m_next(next)
     {}
 
+    void replace(const T& val)
+    {
+      m_val.~T();
+      new (reinterpret_cast<void*>(&m_val)) T(val);
+    }
+
     T m_val;
     Node* m_next;
     Node* m_prev;
@@ -150,6 +156,47 @@ struct list
 
   list() : m_start(nullptr), m_end(nullptr), m_size(0)
   {}
+
+  list(const list& other)
+  {
+    const_iterator end = other.end();
+    for (const_iterator it = other.begin(); it != end; ++it)
+    {
+      push_back(*it);
+    }
+  }
+
+  const list& operator=(const list& other)
+  {
+    Node* curr = m_start;
+    const_iterator itCurr = other.begin();
+    const_iterator itEnd = other.end();
+
+    while (curr && itCurr != itEnd)
+    {
+      curr->replace(*itCurr);
+      curr = curr->m_next;
+      ++itCurr;
+    }
+
+    if(curr)
+    {
+      cleanupTillEnd(curr);
+    }
+    else if (itCurr != itEnd)
+    {
+      while (itCurr != itEnd)
+      {
+        push_back(*itCurr);
+        ++itCurr;
+      }
+    }
+
+    m_size = other.m_size;
+    return *this;
+  }
+
+
 
   iterator begin()
   {
@@ -391,6 +438,12 @@ struct list
     return m_size;
   }
 
+  void clear()
+  {
+    cleanupTillEnd(m_start);
+    m_size = 0;
+    m_start = m_end = nullptr;
+  }
   ~list()
   {
     cleanupTillEnd(m_start);
@@ -457,36 +510,90 @@ struct list
 
 #include <iostream>
 
+uint32_t dc  = 0;
+uint32_t pc  = 0;
+uint32_t cc  = 0;
+uint32_t mc  = 0;
+uint32_t ao  = 0;
+uint32_t mao = 0;
+uint32_t dd  = 0;
+uint32_t on  = 0;
+uint32_t opn = 0;
+uint32_t od  = 0;
+
+
+
 struct X
 {
     X(uint32_t x)
     {
+
       _x = x;
-      std::cout << "param X::ctor " << _x << std::endl;
+      ++pc;
+      //std::cout << "param X::ctor " << _x << std::endl;
+    }
+
+    void* operator new(size_t size)
+    {
+      ++on;
+      return malloc(size); 
+    }
+
+    void* operator new(size_t size, void* ptr)
+    {
+      ++opn;
+      return ptr;
+    }
+
+    void operator delete(void * p)
+    {
+        ++od;
+        ::operator delete(reinterpret_cast<X*>(p));
     }
 
     X()
     {
+
       _x = 0;
-      std::cout << "default X::ctor" << std::endl;
+      ++dc;
+      //std::cout << "default X::ctor" << std::endl;
     }
 
     X(const X& x)
     {
       _x = x._x;
-      std::cout << "copy X::ctor " << _x << std::endl;
+      ++cc;
+      //std::cout << "copy X::ctor " << _x << std::endl;
     }
 
     X(X&& x)
     {
       _x = x._x;
       x._x = 0;
-      std::cout << "move X::ctor " << _x << std::endl;
+      ++mc;
+      //std::cout << "move X::ctor " << _x << std::endl;
+    }
+
+    const X& operator=(const X& x)
+    {
+      _x = x._x;
+      ++ao;
+      return *this;
+      //std::cout << "move X::ctor " << _x << std::endl;
+    }
+
+    const X& operator=(X&& x)
+    {
+      _x = x._x;
+      ++mao;
+      return *this;
+      //std::cout << "move X::ctor " << _x << std::endl;
     }
 
     ~X()
     {
-      std::cout << "X::dtor " << _x << std::endl;
+      ++dd;
+      //std::cout << "X::dtor " << _x << std::endl;
     }
     uint32_t _x;
   };
@@ -497,23 +604,39 @@ std::ostream& operator <<(std::ostream& stream, const X& x)
   return stream;
 }
 
+template <class T>
+void printList(const T& list)
+{
+  for (auto it = list.begin(); it != list.end(); ++it)
+  {
+    std::cout << *it << std::endl;
+  }
+}
+
+#include <list>
 int main()
 {
-  list<X> l;
+  // list<X> l1;
+  // list<X> l2;
+  std::list<X> l1;
+  std::list<X> l2;
+  
   for (uint32_t i = 0; i < 100; i++)
   {
-    l.push_back(std::move(X(i)));
+    l1.emplace_back(i);
   }
 
-  for (auto it = l.rbegin(); it != l.rend(); ++it)
+  for (uint32_t i = 0; i < 100; i++)
   {
-    std::cout << *it << std::endl;
+    l2.emplace_back(i);
   }
 
-  for (auto it = l.rbegin(); it != l.rend(); ++it)
-  {
-    std::cout << *it << std::endl;
-  }
+  l2 = l1;
+  
+  //printList(l1);
+  //printList(l2);
+
+  printf("dc:%u\npc:%u\ncc:%u\nmc:%u\nao:%u\nmao:%u\ndd:%u\non:%u\nod:%u\nopn:%u\n", dc, pc, cc, mc, ao, mao, dd, on, od, opn);
 
   return 0;
 }
