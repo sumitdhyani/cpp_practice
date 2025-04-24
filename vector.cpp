@@ -5,6 +5,138 @@
 template <class T>
 struct vector
 {
+  struct iterator
+  {
+    friend class vector;
+    iterator& operator=(const iterator& other)
+    {
+      m_idx = other.m_idx;
+    }
+
+    iterator& operator++()
+    {
+      if (m_idx == (uint32_t)-1 || ++m_idx == m_thisVector->size())
+      {
+        m_idx = (uint32_t)-1;
+      }
+
+      return *this;
+    }
+
+    T* operator->()
+    {
+      return &(*m_thisVector)[m_idx];
+    }
+
+    T& operator*()
+    {
+      return (*m_thisVector)[m_idx];
+    }
+
+    iterator(const iterator& other) = delete;
+    iterator(iterator&& other) = delete;
+
+    private:
+
+    iterator(vector* thisVector, const uint32_t idx) :
+      m_thisVector(thisVector),
+      m_idx(idx)
+    {}
+
+    uint32_t m_idx;
+    vector* m_thisVector;
+  };
+
+  struct const_iterator
+  {
+    const const_iterator& operator=(const const_iterator& other)
+    {
+      m_idx = other.m_idx;
+    }
+
+    bool operator==(const const_iterator& other)
+    {
+      return m_idx == other.m_idx;
+    }
+
+    bool operator!=(const const_iterator& other)
+    {
+      return m_idx != other.m_idx;
+    }
+
+    const_iterator& operator++()
+    {
+      if (m_idx == (uint32_t)-1 || ++m_idx == m_thisVector->size())
+      {
+        m_idx = (uint32_t)-1;
+      }
+
+      return *this;
+    }
+
+    const_iterator& operator++()
+    {
+      if (m_idx == (uint32_t)-1 || ++m_idx == m_thisVector->size())
+      {
+        m_idx = (uint32_t)-1;
+      }
+
+      return *this;
+    }
+
+    const T* operator->()
+    {
+      return &(*m_thisVector)[m_idx];
+    }
+
+    const T& operator*()
+    {
+      return (*m_thisVector)[m_idx];
+    }
+
+    private:
+
+    const_iterator(const vector* thisVector, const uint32_t idx) :
+      m_thisVector(thisVector),
+      m_idx(idx)
+    {}
+
+    uint32_t m_idx;
+    const vector* m_thisVector;
+  };
+
+  iterator begin()
+  {
+    static iterator end(this, (uint32_t)-1);
+    if (!m_size)
+    {
+      return end;
+    }
+
+    return iterator(this, 0);
+  }
+
+  iterator end()
+  {
+    static iterator end(this, (uint32_t)-1);
+    return end;
+  }
+
+  const_iterator begin() const
+  {
+    static const_iterator end(this, (uint32_t)-1);
+    if (!size)
+    {
+      return end;
+    }
+  }
+
+  const const_iterator end() const
+  {
+    static const_iterator end(this, (uint32_t)-1);
+    return end;
+  }
+
   vector() : m_size(0), m_capacity(0), m_arr(nullptr) {}
 
   void reserve(uint32_t capacity)
@@ -273,53 +405,80 @@ private:
 
 struct X
 {
-  X(uint32_t x) {
-    _x = x;
-    //std::cout << "param X::ctor " << _x << std::endl;
-  }
+    X(uint32_t x)
+    {
 
-  X() {
-    _x = 0;
-    std::cout << "default X::ctor" << std::endl;
-  }
+      _x = x;
+      ++pc;
+      //std::cout << "param X::ctor " << _x << std::endl;
+    }
 
-  X(const X& x) {
-    _x = x._x;
-    //std::cout << "copy X::ctor " << _x << std::endl;
-  }
+    X()
+    {
 
-  X(X&& x) {
-    _x = x._x;
-    x._x = 0;
-    //std::cout << "move X::ctor " << _x << std::endl;
-  }
+      _x = 0;
+      ++dc;
+      //std::cout << "default X::ctor" << std::endl;
+    }
 
-  ~X() {
-    //std::cout << "X::dtor " << _x << std::endl;
-  }
+    X(const X& x)
+    {
+      _x = x._x;
+      ++cc;
+      //std::cout << "copy X::ctor " << _x << std::endl;
+    }
 
-  uint32_t _x;
-  char str[100];
-};
+    X(X&& x)
+    {
+      _x = x._x;
+      x._x = 0;
+      ++mc;
+      //std::cout << "move X::ctor " << _x << std::endl;
+    }
 
-void operator <<(std::ostream& stream, const X& x)
+    const X& operator=(const X& x)
+    {
+      _x = x._x;
+      ++ao;
+      return *this;
+      //std::cout << "move X::ctor " << _x << std::endl;
+    }
+
+    const X& operator=(X&& x)
+    {
+      _x = x._x;
+      ++mao;
+      return *this;
+      //std::cout << "move X::ctor " << _x << std::endl;
+    }
+
+    ~X()
+    {
+      ++dd;
+      //std::cout << "X::dtor " << _x << std::endl;
+    }
+    uint32_t _x;
+  };
+
+std::ostream& operator <<(std::ostream& stream, const X& x)
 {
-  stream << x._x << std::endl;
+  stream << x._x;
+  return stream;
 }
 
 template <class T>
-void printVector(const vector<T>& vec)
+void printVector(const T& list)
 {
-  for (uint32_t i = 0; i < vec.size(); i++)
+  for (auto it = list.begin(); it != list.end(); ++it)
   {
-    std::cout << vec[i];
+    std::cout << *it << std::endl;
   }
 }
 
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
 
-#define NUM_ELEMENTS 1000000
+#define NUM_ELEMENTS 100
 
 int main()
 {
@@ -337,6 +496,7 @@ int main()
     auto end_time = Clock::now();
 
     std::cout << "For objects of size " << sizeof(X) <<", in a custom vector,   cost to insert " << NUM_ELEMENTS <<" elements:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
+    printVector(vec);
   }
 
   {
