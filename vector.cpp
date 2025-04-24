@@ -49,6 +49,7 @@ struct vector
 
   struct const_iterator
   {
+    friend class vector;
     const const_iterator& operator=(const const_iterator& other)
     {
       m_idx = other.m_idx;
@@ -62,16 +63,6 @@ struct vector
     bool operator!=(const const_iterator& other)
     {
       return m_idx != other.m_idx;
-    }
-
-    const_iterator& operator++()
-    {
-      if (m_idx == (uint32_t)-1 || ++m_idx == m_thisVector->size())
-      {
-        m_idx = (uint32_t)-1;
-      }
-
-      return *this;
     }
 
     const_iterator& operator++()
@@ -125,7 +116,7 @@ struct vector
   const_iterator begin() const
   {
     static const_iterator end(this, (uint32_t)-1);
-    if (!size)
+    if (!size())
     {
       return end;
     }
@@ -402,6 +393,14 @@ private:
 };
 
 #include <iostream>
+
+int pc = 0;
+int dc = 0;
+int cc = 0;
+int mc = 0;
+int ao = 0;
+int mao = 0;
+int dd = 0;
 
 struct X
 {
