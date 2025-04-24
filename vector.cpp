@@ -120,6 +120,8 @@ struct vector
     {
       return end;
     }
+
+    return const_iterator(this, 0);
   }
 
   const const_iterator end() const
