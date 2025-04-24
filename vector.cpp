@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <cstring>
 #include <functional>
+#include <concepts>
 
 template <class T>
 struct vector
@@ -250,19 +251,7 @@ struct vector
     }
     else if (m_size == m_capacity)
     {
-      m_capacity *= 2;
-      T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
-      for (uint32_t i = 0 ; i < m_size; i++)
-      {
-        // Copy construction using placement new
-        new (tempBuff + i) T(m_arr[i]);
-
-        // Manually call the destructor as we didn't use new for performance reasons
-        m_arr[i].~T();
-      }
-
-      free(m_arr);
-      m_arr = tempBuff;
+      relocate(m_capacity*2);
     }
 
     ++m_size;
@@ -279,19 +268,7 @@ struct vector
     }
     else if (m_size == m_capacity)
     {
-      m_capacity *= 2;
-      T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
-      for (uint32_t i = 0 ; i < m_size; i++)
-      {
-        // Copy construction using placement new
-        new (tempBuff + i) T(m_arr[i]);
-
-        // Manually call the destructor as we didn't use new for performance reasons
-        m_arr[i].~T();
-      }
-
-      free(m_arr);
-      m_arr = tempBuff;
+      relocate(m_capacity * 2);
     }
 
     ++m_size;
@@ -343,14 +320,7 @@ struct vector
     //Check if the no. of elements now is power of 2
     else if (m_size == m_capacity >> 1)
     {
-      m_capacity = m_size;
-      T* tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
-      for (uint32_t i = 0; i < m_size; i++)
-      {
-        new (tempBuff + i) T(m_arr[i]); 
-      }
-      free(m_arr);
-      m_arr = tempBuff; 
+      relocate(m_size);
     }
   }
 
@@ -361,8 +331,41 @@ struct vector
 
 private:
 
+  void relocate(const uint32_t& newSize)
+  {
+    m_capacity = newSize;
+    T *tempBuff = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
+
+    if constexpr (std::is_fundamental_v<T>)
+    {
+      memcpy(tempBuff, m_arr, sizeof(T) * m_size);
+    }
+    else if constexpr (std::is_nothrow_move_constructible_v<T>)
+    {
+      for (uint32_t i = 0; i < m_size; i++)
+      {
+        // Move construction using placement new
+        new (tempBuff + i) T(std::move(m_arr[i]));
+      }
+    }
+    else
+    {
+      for (uint32_t i = 0; i < m_size; i++)
+      {
+        // Copy construction using placement new
+        new (tempBuff + i) T(m_arr[i]);
+      }
+    }
+
+    cleanup();
+    free(m_arr);
+    m_arr = tempBuff;
+  }
+
   void cleanup()
   {
+    if constexpr (std::is_fundamental_v<T>) return;
+
     for (uint32_t i = 0; i < m_size; i++)
     {
       m_arr[i].~T();
