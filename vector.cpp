@@ -146,25 +146,7 @@ struct vector
       ++shift;
     }
 
-    m_capacity = 1 << shift;
-    T* tempBuff = m_arr;
-    m_arr = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));;
-
-    if(!m_size)
-    {
-      return;
-    }
-
-    for (uint32_t i = 0 ; i < m_size; i++)
-    {
-      // Copy construction using placement new
-      new (m_arr + i) T(tempBuff[i]);
-
-      // Manually call the destructor as we didn't use new for performance reasons
-      tempBuff[i].~T();
-    }
-
-    free(tempBuff);
+    relocate(1 << shift);
   }
 
   void clear()
@@ -197,31 +179,55 @@ struct vector
 
     m_capacity = other.m_capacity;
     m_size = other.m_size;
-    m_arr = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity)); 
-    for (uint32_t i = 0; i < m_size; i++)
+    m_arr = reinterpret_cast<T*>(malloc(sizeof(T) * m_capacity));
+
+    if constexpr (std::is_fundamental_v<T>)
     {
-      new (m_arr+i) T(other[i]);
+      memcpy(m_arr, other.m_arr, sizeof(T) * m_size);
+    }
+    else
+    {
+      for (uint32_t i = 0; i < m_size; i++)
+      {
+        // Copy construction using placement new
+        new (m_arr + i) T(other[i]);
+      }
     }
   }
 
   const vector& operator=(const vector& other)
   {
-    if (m_size >= other.m_size)
+    if (!other.size())
     {
-      cleanup();
+      cleanup_deallocate_nullify();
     }
     else
     {
-      cleanup_deallocate_nullify();
-      m_arr = reinterpret_cast<T*>(malloc(sizeof(T)*other.m_capacity));
-      m_capacity = other.m_capacity;
-    }
+      if (m_capacity >= other.m_capacity)
+      {
+        cleanup();
+      }
+      else
+      {
+        cleanup_deallocate_nullify();
+        m_arr = reinterpret_cast<T*>(malloc(sizeof(T)*other.m_capacity));
+        m_capacity = other.m_capacity;
+      }
 
-    m_size = other.m_size;
+      m_size = other.m_size;
 
-    for (uint32_t i = 0; i < m_size; i++)
-    {
-      new (m_arr+i) T(other[i]);
+      if constexpr (std::is_fundamental_v<T>)
+      {
+        memcpy(m_arr, other.m_arr, sizeof(T) * m_size);
+      }
+      else
+      {
+        for (uint32_t i = 0; i < m_size; i++)
+        {
+          // Copy construction using placement new
+          new (m_arr + i) T(other[i]);
+        }
+      }
     }
 
     return *this;
@@ -432,10 +438,10 @@ struct X
       //std::cout << "copy X::ctor " << _x << std::endl;
     }
 
-    X(X&& x)
+    X(X&& x) noexcept
     {
       _x = x._x;
-      x._x = 0;
+      //x._x = 0;
       ++mc;
       //std::cout << "move X::ctor " << _x << std::endl;
     }
@@ -482,10 +488,11 @@ void printVector(const T& list)
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
 
-#define NUM_ELEMENTS 100
+#define NUM_ELEMENTS 1000000
 
-int main()
+int main(int argc, char** argv)
 {
+  if (argc > 1)
   {
     auto start_time = Clock::now();
     vector<X> vec;
@@ -493,16 +500,17 @@ int main()
     
     for(uint32_t i = 0; i < NUM_ELEMENTS; i++)
     {
+      //std::cout << "Inserting " << i << std::endl;
       //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
-      vec.push_back(X(i));
+      vec.emplace_back(i);
     }
     
     auto end_time = Clock::now();
 
     std::cout << "For objects of size " << sizeof(X) <<", in a custom vector,   cost to insert " << NUM_ELEMENTS <<" elements:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
-    printVector(vec);
+    //printVector(vec);
   }
-
+  else
   {
 
     auto start_time = Clock::now();
@@ -512,7 +520,7 @@ int main()
     for(uint32_t i = 0; i < NUM_ELEMENTS; i++)
     {
       //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
-      vec.push_back(X(i));
+      vec.emplace_back(i);
     }
 
     auto end_time = Clock::now();
