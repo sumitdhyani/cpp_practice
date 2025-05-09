@@ -468,6 +468,7 @@ struct X
       //std::cout << "X::dtor " << _x << std::endl;
     }
     uint32_t _x;
+    uint32_t arr[1024];
   };
 
 std::ostream& operator <<(std::ostream& stream, const X& x)
@@ -490,12 +491,13 @@ typedef std::chrono::high_resolution_clock Clock;
 
 #define NUM_ELEMENTS 1000000
 
+#define VecType X
 int main(int argc, char** argv)
 {
   if (argc > 1)
   {
     auto start_time = Clock::now();
-    vector<X> vec;
+    vector<VecType> vec;
     //vec.reserve(NUM_ELEMENTS);
     
     for(uint32_t i = 0; i < NUM_ELEMENTS; i++)
@@ -507,14 +509,14 @@ int main(int argc, char** argv)
     
     auto end_time = Clock::now();
 
-    std::cout << "For objects of size " << sizeof(X) <<", in a custom vector,   cost to insert " << NUM_ELEMENTS <<" elements:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
+    std::cout << "For objects of size " << sizeof(VecType) << ", in a custom vector,   cost to insert " << NUM_ELEMENTS << " elements:    " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count() << " nanoseconds" << std::endl;
     //printVector(vec);
   }
   else
   {
 
     auto start_time = Clock::now();
-    std::vector<X> vec;
+    std::vector<VecType> vec;
     //vec.reserve(NUM_ELEMENTS);
     
     for(uint32_t i = 0; i < NUM_ELEMENTS; i++)
@@ -525,7 +527,7 @@ int main(int argc, char** argv)
 
     auto end_time = Clock::now();
 
-    std::cout << "For objects of size " << sizeof(X) <<", in a standard vector, cost to insert " << NUM_ELEMENTS <<" elements:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
+    std::cout << "For objects of size " << sizeof(VecType) << ", in a standard vector, cost to insert " << NUM_ELEMENTS << " elements:    " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count() << " nanoseconds" << std::endl;
   }
 
   return 0;
