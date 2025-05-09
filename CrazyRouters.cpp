@@ -20,7 +20,7 @@ void demoEndToEndReqRespRouter() {
 		callback(num*num, num*num*num);
 	};
 	//template<class ResponderId, class ReqId, class ReqData, class... Response>
-	EndToEndReqRespRouter<size_t, size_t, size_t, std::hash<size_t>, std::hash<size_t>, size_t, size_t> reqRespRouter;
+	EndToEndReqRespRouter<size_t, size_t, size_t, size_t, size_t> reqRespRouter;
 	reqRespRouter.registerAsResponder(0, responder);
 	size_t reqId = 1;
 	std::function<void(size_t,size_t)> resultHandler = [&reqId, &reqRespRouter, &resultHandler](const size_t& res1, const size_t& res2) mutable {
@@ -48,7 +48,7 @@ void demoGenericReqRespRouter() {
 	std::array<RequestHandler, 2> responders = {responder1, responder2};
 	
 	//template<class ResponderId, class ReqType, class ReqId, class ReqData, class ReqTypeHasher, class ReqIdHasher, class... Response>
-	GenericReqRespRouter<size_t, size_t, size_t, size_t, std::hash<size_t>, std::hash<size_t>, size_t, size_t> reqRespRouter;
+	GenericReqRespRouter<size_t, size_t, size_t, size_t, size_t, size_t> reqRespRouter;
 	reqRespRouter.registerAsResponder(0, 0, responder1);
 	reqRespRouter.registerAsResponder(1, 1, responder2);
 	size_t reqId = 1;
@@ -66,6 +66,6 @@ void demoGenericReqRespRouter() {
 
 int main() {
 	demoEndToEndReqRespRouter();
-	demoGenericReqRespRouter();
+	//demoGenericReqRespRouter();
 	return 0;
 }

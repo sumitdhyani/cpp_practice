@@ -112,13 +112,13 @@ private:
 
 //Acts a light weight request-response mechanism
 //Making it templatized make is to be able to be used as a type safe mechanism'
-template<class ResponderId, class ReqId, class ReqData, class ResponderIdHasher, class ReqIdHasher, class... Response>
+template<class ResponderId, class ReqId, class ReqData, class... Response>
 struct EndToEndReqRespRouter {
 
 	typedef std::function<void(const Response&...)> ResponseHandler;
 	typedef std::function<void(const ReqData&, const ResponseHandler&)> ReqListener;
-	typedef PubSubDataRouter<ResponderId, size_t, ResponderIdHasher, ReqData, ResponseHandler> ReqRouter;
-	typedef PubSubDataRouter<ReqId, size_t, ReqIdHasher, Response...> RespRouter;
+	typedef PubSubDataRouter<ResponderId, size_t, ReqData, ResponseHandler> ReqRouter;
+	typedef PubSubDataRouter<ReqId, size_t, Response...> RespRouter;
 
 	EndToEndReqRespRouter() : m_reqPending(false) {}
 
@@ -136,12 +136,12 @@ struct EndToEndReqRespRouter {
 		return m_reqRouter.unregister(responderId, (size_t)this);
 	}
 
-	void request(const ResponderId& responderId,
+	bool request(const ResponderId& responderId,
 				 const ReqId& reqId,
 				 const ReqData& reqData,
 				 const ResponseHandler& responseHandler) {
 		if (m_pendingreqIds.find(reqId) != m_pendingreqIds.end()) {
-			throw std::runtime_error("Duplicate reqId");
+			return false;
 		}
 
 		m_pendingreqIds.insert(reqId);
@@ -166,6 +166,8 @@ struct EndToEndReqRespRouter {
 				m_pendingReqProcessors.pop();
 			}
 		}
+
+		return true;
 	}
 
 	bool cancelRequest(const ReqId& reqId) {
