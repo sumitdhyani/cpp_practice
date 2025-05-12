@@ -250,7 +250,7 @@ struct vector
 
   void push_back(const T& val)
   {
-    if(!m_capacity)
+    if (!m_capacity)
     {
       m_capacity = 1;
       m_arr = reinterpret_cast<T*>(malloc(sizeof(T)));
@@ -262,6 +262,23 @@ struct vector
 
     ++m_size;
     new (m_arr + m_size - 1) T(val);
+  }
+
+  void push_back(T&& val)
+  {
+    static_assert(std::is_move_constructible<T>());
+    if (!m_capacity)
+    {
+      m_capacity = 1;
+      m_arr = reinterpret_cast<T*>(malloc(sizeof(T)));
+    }
+    else if (m_size == m_capacity)
+    {
+      relocate(m_capacity * 2);
+    }
+
+    ++m_size;
+    new (m_arr + m_size - 1) T(std::move(val));
   }
 
   template <class... Args>
@@ -446,7 +463,7 @@ struct X
       //std::cout << "move X::ctor " << _x << std::endl;
     }
 
-    const X& operator=(const X& x)
+    const X& operator=(const X &x)
     {
       _x = x._x;
       ++ao;
@@ -480,9 +497,9 @@ std::ostream& operator <<(std::ostream& stream, const X& x)
 template <class T>
 void printVector(const T& list)
 {
-  for (auto it = list.begin(); it != list.end(); ++it)
+  for (auto const &val : list)
   {
-    std::cout << *it << std::endl;
+    std::cout << val << std::endl;
   }
 }
 
