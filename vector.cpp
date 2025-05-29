@@ -4,6 +4,9 @@
 #include <concepts>
 
 template <class T>
+concept is_copy_constructible_and_copy_assignable = std::is_copy_constructible_v<T> && std::is_copy_assignable_v<T>;
+
+template <is_copy_constructible_and_copy_assignable T>
 struct vector
 {
   struct iterator
