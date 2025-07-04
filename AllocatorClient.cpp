@@ -105,7 +105,7 @@ class Temple
 {
   char str[256];
 };
-#define TWO_POWER 13
+#define TWO_POWER 12
 
 
 constexpr Size getPoolSize(const Size size)
@@ -129,6 +129,13 @@ typedef std::chrono::high_resolution_clock Clock;
 
 int main()
 {
+  std::cout << "Custom Allocator Performance Test" << std::endl;
+  std::cout << "=================================" << std::endl;
+  std::cout << "Pool size: " << POOL_SIZE << " bytes" << std::endl;
+  std::cout << "Number of elements to insert: " << NUM_ELEMENTS << std::endl;
+  std::cout << "Size of Temple object: " << sizeof(Temple) << " bytes" << std::endl;
+  
+  {
     auto start_time = Clock::now();
     std::vector<Temple, FreeListAllocator<Temple, POOL_SIZE >> vec;
     
@@ -141,6 +148,7 @@ int main()
     auto end_time = Clock::now();
 
     std::cout << "For objects of size " << sizeof(Temple) <<", in a vector, cost to insert " << NUM_ELEMENTS <<" elements with Custom allocator:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
+  }
 
   {
 

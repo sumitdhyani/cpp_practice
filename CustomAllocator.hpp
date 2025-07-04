@@ -362,3 +362,182 @@ struct FreeResourcetable
   Size m_occupiedNodes[size];
   Size m_firstFreeIdx;
 };
+
+struct FreeResourcetable_V2
+{
+  struct Node
+  {
+    Size m_idx;
+    Size m_size;
+    Node* m_next;
+
+    Node(Size linkIdx, Size size)
+        : m_idx(linkIdx), m_size(size), m_next(nullptr) {}
+
+    // Constructor for the last node in the list
+    Node(Size linkIdx, Size size, Node* next)
+        : m_idx(linkIdx), m_size(size), m_next(next) {}
+  };
+private:
+  Node* m_freeNodes;
+  Node* m_occupiedNodes;
+
+public:
+  FreeResourcetable_V2(const Size& size) : m_freeNodes(new Node(0, size, nullptr)),
+                           m_occupiedNodes(nullptr)
+  {}
+
+  std::optional<Size> getNextFreeIdx(Size len)
+  {
+    if (!m_freeNodes)
+    {
+      return std::nullopt;
+    }
+
+    Node *prevFreeNode = nullptr;
+    Node *currFreeNode = m_freeNodes;
+    while (currFreeNode)
+    {
+      if (currFreeNode->m_size < len)
+      {
+        prevFreeNode = currFreeNode;
+        currFreeNode = currFreeNode->m_next;
+        continue;
+      }
+
+      Node* occupiedNode = new Node(currFreeNode->m_idx, len, m_occupiedNodes);
+      m_occupiedNodes = occupiedNode;
+
+      currFreeNode->m_size -= len;
+      currFreeNode->m_idx += len;
+      // If the size of the current free node is exactly equal to the requested size
+      if (!currFreeNode->m_size)
+      {
+
+        if (prevFreeNode)
+        {
+          // Link the previous free node to the next one
+          prevFreeNode->m_next = currFreeNode->m_next;
+        }
+        else
+        {
+          // If this is the first free node, update m_freeNodes
+          m_freeNodes = currFreeNode->m_next;
+        }
+
+        delete currFreeNode;
+      }
+      // Return the index of the newly occupied node
+      return occupiedNode->m_idx;
+    }
+    
+    return std::nullopt;
+  }
+
+  bool freeIdx(Size idx)
+  {
+
+    Node *prevOccupiedNode = nullptr;
+    Node *currOccupiedNode = m_occupiedNodes;
+    while (currOccupiedNode)
+    {
+      if (currOccupiedNode->m_idx > idx)
+      {
+        prevOccupiedNode = currOccupiedNode;
+        currOccupiedNode = currOccupiedNode->m_next;
+        continue;
+      }
+
+      if (currOccupiedNode->m_idx != idx)
+      {
+        return false;
+      }
+
+      // If the node is found, remove it from the occupied list
+      if (prevOccupiedNode)
+      {
+        prevOccupiedNode->m_next = currOccupiedNode->m_next;
+      }
+      else
+      {
+        m_occupiedNodes = currOccupiedNode->m_next;
+      }
+
+      Node* newFreeNode = new Node(currOccupiedNode->m_idx, currOccupiedNode->m_size);
+      delete currOccupiedNode;
+      onFreeNodeReclaimed(newFreeNode);
+      return true;
+    }
+
+    return false;
+  }
+
+private:
+  void onFreeNodeReclaimed(Node* reclaimedNode)
+  {
+    // If the reclaimed node is the first free node, update m_freeNodes
+    if (!m_freeNodes || reclaimedNode->m_idx > m_freeNodes->m_idx)
+    {
+      reclaimedNode->m_next = m_freeNodes;
+      m_freeNodes = reclaimedNode;
+      return;
+    }
+
+    // Otherwise, find the correct position to insert the reclaimed node
+    Node* curr = m_freeNodes;
+    Node* prev = nullptr;
+    while (curr && curr->m_idx > reclaimedNode->m_idx)
+    {
+      prev = curr;
+      curr = curr->m_next;
+    }
+
+    // Insert the reclaimed node in the sorted order
+    if (prev)
+    {
+      if (prev->m_idx + prev->m_size == reclaimedNode->m_idx)
+      {
+        // If the reclaimed node is adjacent to the previous node, merge them
+        prev->m_size += reclaimedNode->m_size;
+        delete reclaimedNode;
+        reclaimedNode = prev;
+      }
+      else
+      {
+        // Otherwise, link the previous node to the reclaimed node
+        prev->m_next = reclaimedNode;
+      }
+    }
+    // If the reclaimed node is adjacent to the current node, merge them
+    if (curr && reclaimedNode->m_idx + reclaimedNode->m_size == curr->m_idx)
+    {
+      reclaimedNode->m_size += curr->m_size;
+      reclaimedNode->m_next = curr->m_next;
+      delete curr;
+    }
+    else
+    {
+      reclaimedNode->m_next = curr;
+    }
+  }
+  
+  ~FreeResourcetable_V2()
+  {
+    Node* curr = m_freeNodes;
+    while (curr)
+    {
+      Node* next = curr->m_next;
+      delete curr;
+      curr = next;
+    }
+
+    curr = m_occupiedNodes;
+    while (curr)
+    {
+      Node* next = curr->m_next;
+      delete curr;
+      curr = next;
+    }
+  }
+
+};
