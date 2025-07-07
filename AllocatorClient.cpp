@@ -1,4 +1,5 @@
 #include "CustomAllocator.hpp"
+//#include "CustomAllocatorSegmentTree.hpp"
 #include <vector>
 #include <map>
 #include <unordered_map>
@@ -50,8 +51,10 @@ class Sample
   }
 };
 
-template <class T, std::size_t size>
-class FreeListAllocator {
+
+//Everything on stack
+template <class T, std::size_t size, class ResourceTable>
+class FreeListAllocator_V1 {
 public:
     using value_type = T;
     using pointer = T*;
@@ -61,12 +64,12 @@ public:
 
     template <class U>
     struct rebind {
-        using other = FreeListAllocator<U, size>;
+        using other = FreeListAllocator_V1<U, size, ResourceTable>;
     };
 
-    FreeListAllocator() = default;
+    FreeListAllocator_V1() = default;
 
-    ~FreeListAllocator() = default;
+    ~FreeListAllocator_V1() = default;
 
     T* allocate(std::size_t n) {
       //std::cout << "Requested "<< n << " objects" << std::endl;
@@ -88,17 +91,78 @@ public:
       m_freePtrList.freeIdx(idx);
     }
 
-    bool operator==(const FreeListAllocator& other) const noexcept {
+    bool operator==(const FreeListAllocator_V1& other) const noexcept {
         return this == &other;
     }
 
-    bool operator!=(const FreeListAllocator& other) const noexcept {
+    bool operator!=(const FreeListAllocator_V1& other) const noexcept {
         return !(*this == other);
     }
 
 private:
     char m_pool[size*sizeof(T)];
-    FreeResourcetable<size> m_freePtrList;
+    ResourceTable m_freePtrList;
+};
+
+template <class T, std::size_t size, class ResourceTable>
+class FreeListAllocator_V2
+{
+public:
+  using value_type = T;
+  using pointer = T *;
+  using const_pointer = const T *;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  template <class U>
+  struct rebind
+  {
+    using other = FreeListAllocator_V2<U, size, ResourceTable>;
+  };
+
+  FreeListAllocator_V2() : m_pool((char*)malloc(size * sizeof(T)))
+  {}
+
+  ~FreeListAllocator_V2()
+  {
+    free(m_pool);
+  }
+
+  T *allocate(std::size_t n)
+  {
+    // std::cout << "Requested "<< n << " objects" << std::endl;
+    if (auto idx = m_freePtrList.getNextFreeIdx(n); idx)
+    {
+      T *ret = reinterpret_cast<T *>(m_pool + idx.value() * sizeof(T));
+      // std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
+      return ret;
+    }
+    else
+    {
+      return nullptr;
+    }
+  }
+
+  void deallocate(T *p, std::size_t n) noexcept
+  {
+    const std::size_t idx = p - reinterpret_cast<T *>(m_pool);
+    // std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
+    m_freePtrList.freeIdx(idx);
+  }
+
+  bool operator==(const FreeListAllocator_V2 &other) const noexcept
+  {
+    return this == &other;
+  }
+
+  bool operator!=(const FreeListAllocator_V2 &other) const noexcept
+  {
+    return !(*this == other);
+  }
+
+private:
+  char* m_pool;
+  ResourceTable m_freePtrList;
 };
 
 class Temple
@@ -127,6 +191,42 @@ typedef std::chrono::high_resolution_clock Clock;
 #define NUM_ELEMENTS (Size(1) << (TWO_POWER - 1))
 
 
+void demoDefaultAllocatorVector(Size numElements)
+{
+    std::vector<Temple> vec;
+    for (Size i = 0; i < numElements; i++)
+    {
+        vec.push_back(Temple());
+    }
+}
+
+void demoCustomAllocatorVector(Size numElements)
+{
+    std::vector<Temple, FreeListAllocator_V2<Temple, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> vec;
+    for (Size i = 0; i < numElements; i++)
+    {
+        vec.push_back(Temple());
+    }
+}
+
+void demoDefaultAllocatorMap(Size numElements)
+{
+  std::map<int, Temple> myMap;
+  for (Size i = 0; i < numElements; i++)
+  {
+    myMap[i] = Temple();
+  }
+}
+
+void demoCustomAllocatorMap(Size numElements)
+{
+  std::map<int, Temple, std::less<int>, FreeListAllocator_V2<std::pair<const int, Temple>, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myMap;
+  for (Size i = 0; i < numElements; i++)
+  {
+    myMap[i] = Temple();
+  }
+}
+
 int main()
 {
   std::cout << "Custom Allocator Performance Test" << std::endl;
@@ -134,40 +234,34 @@ int main()
   std::cout << "Pool size: " << POOL_SIZE << " bytes" << std::endl;
   std::cout << "Number of elements to insert: " << NUM_ELEMENTS << std::endl;
   std::cout << "Size of Temple object: " << sizeof(Temple) << " bytes" << std::endl;
+
+  auto start = Clock::now();
+  demoCustomAllocatorVector(NUM_ELEMENTS);
+  //demoCustomAllocatorMap(NUM_ELEMENTS);
+  auto end = Clock::now();
+
+  std::cout << "Custom allocator performance test completed." << std::endl;
+  std::cout << "Time taken to insert " << NUM_ELEMENTS << " elements: "
+            << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
+            << " nanoseconds" << std::endl;
+
+
+  std::cout << std::endl << "Now testing with default allocator..." << std::endl;
+  std::cout << "====================================" << std::endl;
+  std::cout << "Pool size: " << POOL_SIZE << " bytes" << std::endl;
+  std::cout << "Number of elements to insert: " << NUM_ELEMENTS << std::endl;
+  std::cout << "Size of Temple object: " << sizeof(Temple) << " bytes" << std::endl;
   
-  {
-    auto start_time = Clock::now();
-    std::vector<Temple, FreeListAllocator<Temple, POOL_SIZE >> vec;
-    
-    for(Size i = 0; i < NUM_ELEMENTS; i++)
-    {
-      //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
-      vec.push_back(Temple());
-    }
-    
-    auto end_time = Clock::now();
+  // Measure time for inserting elements using default allocator
+  start = Clock::now();
+  demoDefaultAllocatorVector(NUM_ELEMENTS);
+  //demoDefaultAllocatorMap(NUM_ELEMENTS);
+  end = Clock::now();
 
-    std::cout << "For objects of size " << sizeof(Temple) <<", in a vector, cost to insert " << NUM_ELEMENTS <<" elements with Custom allocator:    "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
-  }
-
-  {
-
-    auto start_time = Clock::now();
-    std::vector<Temple> vec;
-    vec.reserve(NUM_ELEMENTS);
-    
-    for(Size i = 0; i < NUM_ELEMENTS; i++)
-    {
-      //std::cout << "Pushing " << i << "th element to the vector" << std::endl;
-      vec.push_back(Temple());
-    }
-
-    auto end_time = Clock::now();
-
-    std::cout << "For objects of size " << sizeof(Temple) <<", in a vector, cost to insert " << NUM_ELEMENTS <<" elements with Default allocator:   "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end_time    - start_time).count() << " nanoseconds" << std::endl;
-  }
-
-  std::cout << std::endl << "Programm exiting..." << std::endl << std::endl << std::endl;
+  std::cout << "Default allocator performance test completed." << std::endl;
+  std::cout << "Time taken to insert " << NUM_ELEMENTS << " elements: "
+            << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
+            << " nanoseconds" << std::endl;
 
   return 0;
 }
