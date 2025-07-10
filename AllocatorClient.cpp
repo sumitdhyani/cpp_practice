@@ -2,6 +2,7 @@
 //#include "CustomAllocatorSegmentTree.hpp"
 #include <vector>
 #include <map>
+#include <list>
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
@@ -155,6 +156,11 @@ public:
     return this == &other;
   }
 
+  bool isInRange(char* ptr) const noexcept
+  {
+    return ptr >= m_pool && ptr < m_pool + size * sizeof(T);
+  }
+
   bool operator!=(const FreeListAllocator_V2 &other) const noexcept
   {
     return !(*this == other);
@@ -165,6 +171,103 @@ private:
   ResourceTable m_freePtrList;
 };
 
+template <class T, class AllocType>
+struct LinkedListAllocator
+{
+  struct AllocNode
+  {
+    AllocNode(AllocNode *m_next) : m_next(m_next) {}
+    AllocNode() : m_next(nullptr) {}
+
+    T* allocate()
+    {
+      return m_alloc.allocate();
+    }
+
+    void deallocate(T* p, std::size_t n) noexcept
+    {
+      m_alloc.deallocate(p, n);
+    }
+
+    bool isInRange(char* ptr) const noexcept
+    {
+      return m_alloc.isInRange(ptr);
+    }
+
+    AllocType m_alloc;
+    AllocNode* m_next;
+  };
+
+  using value_type = T;
+  using pointer = T *;
+  using const_pointer = const T *;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  template <class U>
+  struct rebind
+  {
+    using other = LinkedListAllocator<U, AllocType>;
+  };
+
+  LinkedListAllocator() : m_start(new AllocNode())
+  {}
+
+  ~LinkedListAllocator()
+  {
+    AllocNode *current = m_start;
+    while (current)
+    {
+      AllocNode *next = current->m_next;
+      delete current;
+      current = next;
+    }
+  }
+
+  T *allocate(std::size_t n)
+  {
+
+    // std::cout << "Requested "<< n << " objects" << std::endl;
+    T* ret = nullptr;
+    AllocNode *current = m_start;
+    while (current && !(ret == current->allocate()))
+    {
+      current = current->m_next;
+    }
+    
+    if (!ret)
+    {
+      m_start = new AllocNode(m_start);
+      ret = m_start->allocate();
+    }
+
+    return ret;
+  }
+
+  void deallocate(T *p, std::size_t n) noexcept
+  {
+    AllocNode *current = m_start;
+    while (!current->isInRange(reinterpret_cast<char*>(p)))
+    {
+      current = current->m_next;
+    }
+
+    current->deallocate(p, n);
+  }
+
+  bool operator==(const LinkedListAllocator &other) const noexcept
+  {
+    return this == &other;
+  }
+
+  bool operator!=(const LinkedListAllocator &other) const noexcept
+  {
+    return !(*this == other);
+  }
+
+private:
+  AllocNode *m_start;
+};
 class Temple
 {
   char str[256];
@@ -209,15 +312,6 @@ void demoCustomAllocatorVector(Size numElements)
     }
 }
 
-void demoDefaultAllocatorMap(Size numElements)
-{
-  std::map<int, Temple> myMap;
-  for (Size i = 0; i < numElements; i++)
-  {
-    myMap[i] = Temple();
-  }
-}
-
 void demoCustomAllocatorMap(Size numElements)
 {
   std::map<int, Temple, std::less<int>, FreeListAllocator_V2<std::pair<const int, Temple>, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myMap;
@@ -225,7 +319,67 @@ void demoCustomAllocatorMap(Size numElements)
   {
     myMap[i] = Temple();
   }
+
+  // while(!myMap.empty())
+  // {
+  //   myMap.erase(rand() % numElements);
+  // }
+
+  for (Size i = 0; i < numElements; i++)
+  {
+    //myMap.erase(rand() % numElements);
+    myMap.erase(numElements - i -1);
+  }
 }
+
+void demoDefaultAllocatorMap(Size numElements)
+{
+  std::map<int, Temple> myMap;
+  for (Size i = 0; i < numElements; i++)
+  {
+    myMap[i] = Temple();
+  }
+
+  while (!myMap.empty())
+  {
+    myMap.erase(rand() % numElements);
+  }
+
+  for (Size i = 0; i < numElements; i++)
+  {
+    // myMap.erase(rand() % numElements);
+    myMap.erase(numElements - i - 1);
+  }
+}
+
+void demoCustomAllocatorList(Size numElements)
+{
+  std::list<Temple, FreeListAllocator_V2<Temple, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myList;
+  for (Size i = 0; i < numElements; i++)
+  {
+    myList.push_back(Temple());
+  }
+
+  for (Size i = 0; i < numElements; i++)
+  {
+    myList.pop_front();
+  }
+}
+
+void demoDefaultAllocatorList(Size numElements)
+{
+  std::list<Temple> myList;
+  for (Size i = 0; i < numElements; i++)
+  {
+    myList.push_back(Temple());
+  }
+
+  for (Size i = 0; i < numElements; i++)
+  {
+    myList.pop_front();
+  }
+}
+
 
 int main()
 {
@@ -236,8 +390,9 @@ int main()
   std::cout << "Size of Temple object: " << sizeof(Temple) << " bytes" << std::endl;
 
   auto start = Clock::now();
-  demoCustomAllocatorVector(NUM_ELEMENTS);
+  //demoCustomAllocatorVector(NUM_ELEMENTS);
   //demoCustomAllocatorMap(NUM_ELEMENTS);
+  demoCustomAllocatorList(NUM_ELEMENTS);
   auto end = Clock::now();
 
   std::cout << "Custom allocator performance test completed." << std::endl;
@@ -254,8 +409,9 @@ int main()
   
   // Measure time for inserting elements using default allocator
   start = Clock::now();
-  demoDefaultAllocatorVector(NUM_ELEMENTS);
+  //demoDefaultAllocatorVector(NUM_ELEMENTS);
   //demoDefaultAllocatorMap(NUM_ELEMENTS);
+  demoDefaultAllocatorList(NUM_ELEMENTS);
   end = Clock::now();
 
   std::cout << "Default allocator performance test completed." << std::endl;
