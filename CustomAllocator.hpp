@@ -904,3 +904,192 @@ private:
   }
 
 };
+
+template <class T, Size size>
+struct MemPool_V1
+{
+  FreeResourcetable_V1<size> m_freeResourcetable;
+  T m_data[size];
+
+  MemPool_V1() = default;
+
+  std::optional<T*> allocate(const Size& n)
+  {
+
+    if (auto idx = m_freeResourcetable.getNextFreeIdx(n); idx)
+    {
+      return m_data + *idx;
+    }
+
+    return std::nullopt;
+  }
+
+  bool deallocate(T* ptr)
+  {
+    if (ptr < m_data || ptr >= m_data + size)
+    {
+      return false; // Pointer out of bounds
+    }
+   
+    m_freeResourcetable.freeIdx(ptr - m_data);
+    return true;
+  }
+};
+
+template <class T, Size size>
+struct Mempools_V1
+{
+  struct MemPoolNode
+  {
+    MemPoolNode* m_next;
+    MemPool_V1<T, size> m_pool;
+
+    MemPoolNode(MemPoolNode* next) : m_next(next) {}
+  };
+
+
+  Mempools_V1() : m_pools(new MemPoolNode(nullptr)) {}
+
+  ~Mempools_V1()
+  {
+    MemPoolNode* curr = m_pools;
+    while (curr)
+    {
+      MemPoolNode* next = curr->m_next;
+      delete curr;
+      curr = next;
+    }
+  }
+
+  Mempools_V1(const Mempools_V1&) = delete;
+  Mempools_V1& operator=(const Mempools_V1&) = delete;
+  Mempools_V1(Mempools_V1&&) = delete;
+  Mempools_V1& operator=(Mempools_V1&&) = delete;
+
+  T* allocate(const Size& n)
+  {
+    MemPoolNode* curr = m_pools;
+    while (curr)
+    {
+      if (auto ptr = curr->m_pool.allocate(n))
+      {
+        return *ptr;
+      }
+      curr = curr->m_next;
+    }
+
+    // If no pool has space, create a new one
+    MemPoolNode* newNode = new MemPoolNode(m_pools);
+    m_pools = newNode;
+    return *m_pools->m_pool.allocate(n);
+  }
+
+private:
+  MemPoolNode* m_pools;
+};
+
+
+template <class T, Size size>
+struct MemPool_Heap
+{
+  MemPool_Heap() : m_data(static_cast<T*>(malloc(sizeof(T) * size)))
+  {}
+
+  ~MemPool_Heap()
+  {
+    free(m_data);
+  }
+  
+  std::optional<T*> allocate(const Size& n)
+  {
+    if (auto idx = m_freeResourcetable.getNextFreeIdx(n); idx)
+    {
+      return m_data + *idx;
+    }
+    return std::nullopt;
+  }
+
+  bool deallocate(T* ptr)
+  {
+    if (ptr < m_data || ptr >= m_data + size)
+    {
+      return false; // Pointer out of bounds
+    }
+
+    m_freeResourcetable.freeIdx(ptr - m_data);
+    return true;
+  }
+
+  MemPool_Heap(const MemPool_Heap&) = delete;
+  MemPool_Heap& operator=(const MemPool_Heap&) = delete;
+  MemPool_Heap(MemPool_Heap&&) = delete;
+  MemPool_Heap& operator=(MemPool_Heap&&) = delete;
+
+private:
+  FreeResourcetable_Heap<size> m_freeResourcetable;
+  T* m_data;
+};
+
+template <class T, Size size>
+struct Mempools_Heap
+{
+  struct MemPoolNode
+  {
+    MemPoolNode* m_next;
+    MemPool_Heap<T, size> m_pool;
+
+    MemPoolNode(MemPoolNode* next) : m_next(next) {}
+  };
+
+  Mempools_Heap() : m_pools(new MemPoolNode(nullptr)) {}
+
+  ~Mempools_Heap()
+  {
+    MemPoolNode* curr = m_pools;
+    while (curr)
+    {
+      MemPoolNode* next = curr->m_next;
+      delete curr;
+      curr = next;
+    }
+  }
+
+  Mempools_Heap(const Mempools_Heap&) = delete;
+  Mempools_Heap& operator=(const Mempools_Heap&) = delete;
+  Mempools_Heap(Mempools_Heap&&) = delete;
+  Mempools_Heap& operator=(Mempools_Heap&&) = delete;
+
+  T* allocate(const Size& n)
+  {
+    MemPoolNode* curr = m_pools;
+    while (curr)
+    {
+      if (auto ptr = curr->m_pool.allocate(n))
+      {
+        return *ptr;
+      }
+      curr = curr->m_next;
+    }
+
+    // If no pool has space, create a new one
+    MemPoolNode* newNode = new MemPoolNode(m_pools);
+    m_pools = newNode;
+    return *m_pools->m_pool.allocate(n);
+  }
+
+  bool deallocate(T* ptr)
+  {
+    MemPoolNode* curr = m_pools;
+    while (curr)
+    {
+      if (curr->m_pool.deallocate(ptr))
+      {
+        return true;
+      }
+      curr = curr->m_next;
+    }
+    return false; // Pointer not found in any pool
+  }
+private:
+  MemPoolNode* m_pools;
+};

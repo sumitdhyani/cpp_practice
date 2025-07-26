@@ -171,32 +171,140 @@ private:
   ResourceTable m_freePtrList;
 };
 
-template <class T, class AllocType>
+template <class T, std::size_t size, class ResourceTable>
+class FreeListAllocator_V3
+{
+public:
+  using value_type = T;
+  using pointer = T *;
+  using const_pointer = const T *;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  struct ResourceNode
+  {
+    ResourceNode(ResourceNode* next) : m_pool((char*)malloc(size * sizeof(T))), m_next(next)
+    {}
+
+    ResourceNode() : m_pool((char*)malloc(size * sizeof(T))), m_next(nullptr)
+    {}
+
+    T *allocate(std::size_t n)
+    {
+      auto idx = m_freePtrList.getNextFreeIdx(n);
+      if (idx)
+      {
+        // std::cout << "Requested "<< n << " objects" << std::endl;
+        // std::cout << "Returned " << n << " objects starting at idx: " << idx.value() << std::endl;
+        T *ret = reinterpret_cast<T *>(m_pool + idx.value() * sizeof(T));
+        // std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
+        return ret;
+      }
+      else
+      {
+        return nullptr;
+      }
+    }
+
+    bool deallocate(T *p, std::size_t n) noexcept
+    {
+      // std::cout << "Freed memory of size: " << n << " at idx: " << (p - reinterpret_cast<T *>(m_pool)) << std::endl;
+      // Calculate the index of the pointer in the pool
+      // This assumes that the pool is a contiguous block of memory
+      // and that the pointer p points to an element of type T.
+      // If the pointer is not in the pool, return false.
+      if (!isInRange(reinterpret_cast<char *>(p)))
+      {
+        return false;
+      }
+
+      const std::size_t idx = p - reinterpret_cast<T *>(m_pool);
+      // std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
+      m_freePtrList.freeIdx(idx);
+      return true;
+    }
+
+    bool isInRange(char *ptr) const noexcept
+    {
+      return ptr >= m_pool && ptr < m_pool + size * sizeof(T);
+    }
+
+    ResourceNode *m_next;
+    char *m_pool;
+    ResourceTable m_freePtrList;
+  };
+
+  template <class U>
+  struct rebind
+  {
+    using other = FreeListAllocator_V3<U, size, ResourceTable>;
+  };
+
+  FreeListAllocator_V3() : m_start(new ResourceNode(nullptr))
+  {}
+  
+  ~FreeListAllocator_V3()
+  {
+    ResourceNode *current = m_start;
+    while (current)
+    {
+      ResourceNode *next = current->m_next;
+      free(current->m_pool);
+      delete current;
+      current = next;
+    }
+  }
+
+  T *allocate(std::size_t n)
+  {
+    // std::cout << "Requested "<< n << " objects" << std::endl;
+    T *ret = nullptr;
+    ResourceNode *current = m_start;
+    while (current && !(ret == current->allocate(n)))
+    {
+      current = current->m_next;
+    }
+
+    if (!ret)
+    {
+      m_start = new ResourceNode(m_start);
+      ret = m_start->allocate(n);
+    }
+
+    return ret;
+  }
+
+  void deallocate(T *p, std::size_t n) noexcept
+  {
+    ResourceNode *current = m_start;
+    while (current)
+    {
+      if (current->deallocate(p, n))
+      {
+        return;
+      }
+      current = current->m_next;
+    }
+  }
+
+  bool operator==(const FreeListAllocator_V3 &other) const noexcept
+  {
+    return this == &other;
+  }
+
+  bool operator!=(const FreeListAllocator_V3 &other) const noexcept
+  {
+    return !(*this == other);
+  }
+
+private:
+  ResourceNode* m_start;
+};
+
+template <class T, Size size>
 struct LinkedListAllocator
 {
-  struct AllocNode
-  {
-    AllocNode(AllocNode *m_next) : m_next(m_next) {}
-    AllocNode() : m_next(nullptr) {}
-
-    T* allocate()
-    {
-      return m_alloc.allocate();
-    }
-
-    void deallocate(T* p, std::size_t n) noexcept
-    {
-      m_alloc.deallocate(p, n);
-    }
-
-    bool isInRange(char* ptr) const noexcept
-    {
-      return m_alloc.isInRange(ptr);
-    }
-
-    AllocType m_alloc;
-    AllocNode* m_next;
-  };
+  
 
   using value_type = T;
   using pointer = T *;
@@ -207,52 +315,21 @@ struct LinkedListAllocator
   template <class U>
   struct rebind
   {
-    using other = LinkedListAllocator<U, AllocType>;
+    using other = LinkedListAllocator<U, size>;
   };
 
-  LinkedListAllocator() : m_start(new AllocNode())
-  {}
+  LinkedListAllocator() = default;
 
-  ~LinkedListAllocator()
-  {
-    AllocNode *current = m_start;
-    while (current)
-    {
-      AllocNode *next = current->m_next;
-      delete current;
-      current = next;
-    }
-  }
+  ~LinkedListAllocator() = default;
 
   T *allocate(std::size_t n)
   {
-
-    // std::cout << "Requested "<< n << " objects" << std::endl;
-    T* ret = nullptr;
-    AllocNode *current = m_start;
-    while (current && !(ret == current->allocate()))
-    {
-      current = current->m_next;
-    }
-    
-    if (!ret)
-    {
-      m_start = new AllocNode(m_start);
-      ret = m_start->allocate();
-    }
-
-    return ret;
+    return m_pools.allocate(n);
   }
 
   void deallocate(T *p, std::size_t n) noexcept
   {
-    AllocNode *current = m_start;
-    while (!current->isInRange(reinterpret_cast<char*>(p)))
-    {
-      current = current->m_next;
-    }
-
-    current->deallocate(p, n);
+    m_pools.deallocate(p);
   }
 
   bool operator==(const LinkedListAllocator &other) const noexcept
@@ -266,8 +343,9 @@ struct LinkedListAllocator
   }
 
 private:
-  AllocNode *m_start;
+  Mempools_Heap<T, size> m_pools;
 };
+
 class Temple
 {
   char str[256];
@@ -354,7 +432,8 @@ void demoDefaultAllocatorMap(Size numElements)
 
 void demoCustomAllocatorList(Size numElements)
 {
-  std::list<Temple, FreeListAllocator_V2<Temple, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myList;
+  //std::list<Temple, FreeListAllocator_V2<Temple, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myList;
+  std::list<Temple, LinkedListAllocator<Temple, POOL_SIZE>> myList;
   for (Size i = 0; i < numElements; i++)
   {
     myList.push_back(Temple());
