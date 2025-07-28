@@ -54,258 +54,256 @@ class Sample
 
 
 //Everything on stack
-template <class T, std::size_t size, class ResourceTable>
-class FreeListAllocator_V1 {
-public:
-    using value_type = T;
-    using pointer = T*;
-    using const_pointer = const T*;
-    using size_type = std::size_t;
-    using difference_type = std::ptrdiff_t;
+// template <class T, std::size_t size, class ResourceTable>
+// class FreeListAllocator_V1 {
+// public:
+//     using value_type = T;
+//     using pointer = T*;
+//     using const_pointer = const T*;
+//     using size_type = std::size_t;
+//     using difference_type = std::ptrdiff_t;
 
-    template <class U>
-    struct rebind {
-        using other = FreeListAllocator_V1<U, size, ResourceTable>;
-    };
+//     template <class U>
+//     struct rebind {
+//         using other = FreeListAllocator_V1<U, size, ResourceTable>;
+//     };
 
-    FreeListAllocator_V1() = default;
+//     FreeListAllocator_V1() = default;
 
-    ~FreeListAllocator_V1() = default;
+//     ~FreeListAllocator_V1() = default;
 
-    T* allocate(std::size_t n) {
-      //std::cout << "Requested "<< n << " objects" << std::endl;
-      if (auto idx = m_freePtrList.getNextFreeIdx(n); idx.has_value())
-      {
-        T* ret = reinterpret_cast<T*>(m_pool + idx.value() * sizeof(T));
-        //std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
-        return ret;
-      }
-      else
-      {
-        return nullptr;
-      }
-    }
+//     T* allocate(std::size_t n) {
+//       //std::cout << "Requested "<< n << " objects" << std::endl;
+//       if (auto idx = m_freePtrList.getNextFreeIdx(n); idx.has_value())
+//       {
+//         T* ret = reinterpret_cast<T*>(m_pool + idx.value() * sizeof(T));
+//         //std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
+//         return ret;
+//       }
+//       else
+//       {
+//         return nullptr;
+//       }
+//     }
 
-    void deallocate(T* p, std::size_t n) noexcept {
-      const std::size_t idx = p - reinterpret_cast<T*>(m_pool);
-      //std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
-      m_freePtrList.freeIdx(idx);
-    }
+//     void deallocate(T* p, std::size_t n) noexcept {
+//       const std::size_t idx = p - reinterpret_cast<T*>(m_pool);
+//       //std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
+//       m_freePtrList.freeIdx(idx);
+//     }
 
-    bool operator==(const FreeListAllocator_V1& other) const noexcept {
-        return this == &other;
-    }
+//     bool operator==(const FreeListAllocator_V1& other) const noexcept {
+//         return this == &other;
+//     }
 
-    bool operator!=(const FreeListAllocator_V1& other) const noexcept {
-        return !(*this == other);
-    }
+//     bool operator!=(const FreeListAllocator_V1& other) const noexcept {
+//         return !(*this == other);
+//     }
 
-private:
-    char m_pool[size*sizeof(T)];
-    ResourceTable m_freePtrList;
-};
+// private:
+//     char m_pool[size*sizeof(T)];
+//     ResourceTable m_freePtrList;
+// };
 
-template <class T, std::size_t size, class ResourceTable>
-class FreeListAllocator_V2
-{
-public:
-  using value_type = T;
-  using pointer = T *;
-  using const_pointer = const T *;
-  using size_type = std::size_t;
-  using difference_type = std::ptrdiff_t;
+// template <class T, std::size_t size, class ResourceTable>
+// class FreeListAllocator_V2
+// {
+// public:
+//   using value_type = T;
+//   using pointer = T *;
+//   using const_pointer = const T *;
+//   using size_type = std::size_t;
+//   using difference_type = std::ptrdiff_t;
 
-  template <class U>
-  struct rebind
-  {
-    using other = FreeListAllocator_V2<U, size, ResourceTable>;
-  };
+//   template <class U>
+//   struct rebind
+//   {
+//     using other = FreeListAllocator_V2<U, size, ResourceTable>;
+//   };
 
-  FreeListAllocator_V2() : m_pool((char*)malloc(size * sizeof(T)))
-  {}
+//   FreeListAllocator_V2() : m_pool((char*)malloc(size * sizeof(T)))
+//   {}
 
-  ~FreeListAllocator_V2()
-  {
-    free(m_pool);
-  }
+//   ~FreeListAllocator_V2()
+//   {
+//     free(m_pool);
+//   }
 
-  T *allocate(std::size_t n)
-  {
-    // std::cout << "Requested "<< n << " objects" << std::endl;
-    if (auto idx = m_freePtrList.getNextFreeIdx(n); idx)
-    {
-      T *ret = reinterpret_cast<T *>(m_pool + idx.value() * sizeof(T));
-      // std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
-      return ret;
-    }
-    else
-    {
-      return nullptr;
-    }
-  }
+//   T *allocate(std::size_t n)
+//   {
+//     // std::cout << "Requested "<< n << " objects" << std::endl;
+//     if (auto idx = m_freePtrList.getNextFreeIdx(n); idx)
+//     {
+//       T *ret = reinterpret_cast<T *>(m_pool + idx.value() * sizeof(T));
+//       // std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
+//       return ret;
+//     }
+//     else
+//     {
+//       return nullptr;
+//     }
+//   }
 
-  void deallocate(T *p, std::size_t n) noexcept
-  {
-    const std::size_t idx = p - reinterpret_cast<T *>(m_pool);
-    // std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
-    m_freePtrList.freeIdx(idx);
-  }
+//   void deallocate(T *p, std::size_t n) noexcept
+//   {
+//     const std::size_t idx = p - reinterpret_cast<T *>(m_pool);
+//     // std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
+//     m_freePtrList.freeIdx(idx);
+//   }
 
-  bool operator==(const FreeListAllocator_V2 &other) const noexcept
-  {
-    return this == &other;
-  }
+//   bool operator==(const FreeListAllocator_V2 &other) const noexcept
+//   {
+//     return this == &other;
+//   }
 
-  bool isInRange(char* ptr) const noexcept
-  {
-    return ptr >= m_pool && ptr < m_pool + size * sizeof(T);
-  }
+//   bool isInRange(char* ptr) const noexcept
+//   {
+//     return ptr >= m_pool && ptr < m_pool + size * sizeof(T);
+//   }
 
-  bool operator!=(const FreeListAllocator_V2 &other) const noexcept
-  {
-    return !(*this == other);
-  }
+//   bool operator!=(const FreeListAllocator_V2 &other) const noexcept
+//   {
+//     return !(*this == other);
+//   }
 
-private:
-  char* m_pool;
-  ResourceTable m_freePtrList;
-};
+// private:
+//   char* m_pool;
+//   ResourceTable m_freePtrList;
+// };
 
-template <class T, std::size_t size, class ResourceTable>
-class FreeListAllocator_V3
-{
-public:
-  using value_type = T;
-  using pointer = T *;
-  using const_pointer = const T *;
-  using size_type = std::size_t;
-  using difference_type = std::ptrdiff_t;
+// template <class T, std::size_t size, class ResourceTable>
+// class FreeListAllocator_V3
+// {
+// public:
+//   using value_type = T;
+//   using pointer = T *;
+//   using const_pointer = const T *;
+//   using size_type = std::size_t;
+//   using difference_type = std::ptrdiff_t;
 
-  struct ResourceNode
-  {
-    ResourceNode(ResourceNode* next) : m_pool((char*)malloc(size * sizeof(T))), m_next(next)
-    {}
+//   struct ResourceNode
+//   {
+//     ResourceNode(ResourceNode* next) : m_pool((char*)malloc(size * sizeof(T))), m_next(next)
+//     {}
 
-    ResourceNode() : m_pool((char*)malloc(size * sizeof(T))), m_next(nullptr)
-    {}
+//     ResourceNode() : m_pool((char*)malloc(size * sizeof(T))), m_next(nullptr)
+//     {}
 
-    T *allocate(std::size_t n)
-    {
-      auto idx = m_freePtrList.getNextFreeIdx(n);
-      if (idx)
-      {
-        // std::cout << "Requested "<< n << " objects" << std::endl;
-        // std::cout << "Returned " << n << " objects starting at idx: " << idx.value() << std::endl;
-        T *ret = reinterpret_cast<T *>(m_pool + idx.value() * sizeof(T));
-        // std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
-        return ret;
-      }
-      else
-      {
-        return nullptr;
-      }
-    }
+//     T *allocate(std::size_t n)
+//     {
+//       auto idx = m_freePtrList.getNextFreeIdx(n);
+//       if (idx)
+//       {
+//         // std::cout << "Requested "<< n << " objects" << std::endl;
+//         // std::cout << "Returned " << n << " objects starting at idx: " << idx.value() << std::endl;
+//         T *ret = reinterpret_cast<T *>(m_pool + idx.value() * sizeof(T));
+//         // std::cout << "Returned " << n << " objects starting at idx: " << (ret - reinterpret_cast<T*>(m_pool))  << std::endl;
+//         return ret;
+//       }
+//       else
+//       {
+//         return nullptr;
+//       }
+//     }
 
-    bool deallocate(T *p, std::size_t n) noexcept
-    {
-      // std::cout << "Freed memory of size: " << n << " at idx: " << (p - reinterpret_cast<T *>(m_pool)) << std::endl;
-      // Calculate the index of the pointer in the pool
-      // This assumes that the pool is a contiguous block of memory
-      // and that the pointer p points to an element of type T.
-      // If the pointer is not in the pool, return false.
-      if (!isInRange(reinterpret_cast<char *>(p)))
-      {
-        return false;
-      }
+//     bool deallocate(T *p, std::size_t n) noexcept
+//     {
+//       // std::cout << "Freed memory of size: " << n << " at idx: " << (p - reinterpret_cast<T *>(m_pool)) << std::endl;
+//       // Calculate the index of the pointer in the pool
+//       // This assumes that the pool is a contiguous block of memory
+//       // and that the pointer p points to an element of type T.
+//       // If the pointer is not in the pool, return false.
+//       if (!isInRange(reinterpret_cast<char *>(p)))
+//       {
+//         return false;
+//       }
 
-      const std::size_t idx = p - reinterpret_cast<T *>(m_pool);
-      // std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
-      m_freePtrList.freeIdx(idx);
-      return true;
-    }
+//       const std::size_t idx = p - reinterpret_cast<T *>(m_pool);
+//       // std::cout << "Freed memory of size: " << n << " at idx: " << idx << std::endl;
+//       m_freePtrList.freeIdx(idx);
+//       return true;
+//     }
 
-    bool isInRange(char *ptr) const noexcept
-    {
-      return ptr >= m_pool && ptr < m_pool + size * sizeof(T);
-    }
+//     bool isInRange(char *ptr) const noexcept
+//     {
+//       return ptr >= m_pool && ptr < m_pool + size * sizeof(T);
+//     }
 
-    ResourceNode *m_next;
-    char *m_pool;
-    ResourceTable m_freePtrList;
-  };
+//     ResourceNode *m_next;
+//     char *m_pool;
+//     ResourceTable m_freePtrList;
+//   };
 
-  template <class U>
-  struct rebind
-  {
-    using other = FreeListAllocator_V3<U, size, ResourceTable>;
-  };
+//   template <class U>
+//   struct rebind
+//   {
+//     using other = FreeListAllocator_V3<U, size, ResourceTable>;
+//   };
 
-  FreeListAllocator_V3() : m_start(new ResourceNode(nullptr))
-  {}
+//   FreeListAllocator_V3() : m_start(new ResourceNode(nullptr))
+//   {}
   
-  ~FreeListAllocator_V3()
-  {
-    ResourceNode *current = m_start;
-    while (current)
-    {
-      ResourceNode *next = current->m_next;
-      free(current->m_pool);
-      delete current;
-      current = next;
-    }
-  }
+//   ~FreeListAllocator_V3()
+//   {
+//     ResourceNode *current = m_start;
+//     while (current)
+//     {
+//       ResourceNode *next = current->m_next;
+//       free(current->m_pool);
+//       delete current;
+//       current = next;
+//     }
+//   }
 
-  T *allocate(std::size_t n)
-  {
-    // std::cout << "Requested "<< n << " objects" << std::endl;
-    T *ret = nullptr;
-    ResourceNode *current = m_start;
-    while (current && !(ret == current->allocate(n)))
-    {
-      current = current->m_next;
-    }
+//   T *allocate(std::size_t n)
+//   {
+//     // std::cout << "Requested "<< n << " objects" << std::endl;
+//     T *ret = nullptr;
+//     ResourceNode *current = m_start;
+//     while (current && !(ret == current->allocate(n)))
+//     {
+//       current = current->m_next;
+//     }
 
-    if (!ret)
-    {
-      m_start = new ResourceNode(m_start);
-      ret = m_start->allocate(n);
-    }
+//     if (!ret)
+//     {
+//       m_start = new ResourceNode(m_start);
+//       ret = m_start->allocate(n);
+//     }
 
-    return ret;
-  }
+//     return ret;
+//   }
 
-  void deallocate(T *p, std::size_t n) noexcept
-  {
-    ResourceNode *current = m_start;
-    while (current)
-    {
-      if (current->deallocate(p, n))
-      {
-        return;
-      }
-      current = current->m_next;
-    }
-  }
+//   void deallocate(T *p, std::size_t n) noexcept
+//   {
+//     ResourceNode *current = m_start;
+//     while (current)
+//     {
+//       if (current->deallocate(p, n))
+//       {
+//         return;
+//       }
+//       current = current->m_next;
+//     }
+//   }
 
-  bool operator==(const FreeListAllocator_V3 &other) const noexcept
-  {
-    return this == &other;
-  }
+//   bool operator==(const FreeListAllocator_V3 &other) const noexcept
+//   {
+//     return this == &other;
+//   }
 
-  bool operator!=(const FreeListAllocator_V3 &other) const noexcept
-  {
-    return !(*this == other);
-  }
+//   bool operator!=(const FreeListAllocator_V3 &other) const noexcept
+//   {
+//     return !(*this == other);
+//   }
 
-private:
-  ResourceNode* m_start;
-};
+// private:
+//   ResourceNode* m_start;
+// };
 
 template <class T, Size size>
 struct LinkedListAllocator
 {
-  
-
   using value_type = T;
   using pointer = T *;
   using const_pointer = const T *;
@@ -318,7 +316,7 @@ struct LinkedListAllocator
     using other = LinkedListAllocator<U, size>;
   };
 
-  LinkedListAllocator() = default;
+  LinkedListAllocator() : m_pools(size) {}
 
   ~LinkedListAllocator() = default;
 
@@ -343,7 +341,7 @@ struct LinkedListAllocator
   }
 
 private:
-  Mempools_Heap<T, size> m_pools;
+  Mempools_Heap<T> m_pools;
 };
 
 class Temple
@@ -371,6 +369,7 @@ typedef std::chrono::high_resolution_clock Clock;
 
 #define NUM_ELEMENTS (Size(1) << (TWO_POWER - 1))
 
+#define ALLOCATOR_SIZE 100
 
 void demoDefaultAllocatorVector(Size numElements)
 {
@@ -383,7 +382,7 @@ void demoDefaultAllocatorVector(Size numElements)
 
 void demoCustomAllocatorVector(Size numElements)
 {
-    std::vector<Temple, FreeListAllocator_V2<Temple, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> vec;
+    std::vector<Temple, LinkedListAllocator<Temple, ALLOCATOR_SIZE>> vec;
     for (Size i = 0; i < numElements; i++)
     {
         vec.push_back(Temple());
@@ -392,7 +391,7 @@ void demoCustomAllocatorVector(Size numElements)
 
 void demoCustomAllocatorMap(Size numElements)
 {
-  std::map<int, Temple, std::less<int>, FreeListAllocator_V2<std::pair<const int, Temple>, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myMap;
+  std::map<int, Temple, std::less<int>, LinkedListAllocator<std::pair<const int, Temple>, ALLOCATOR_SIZE>> myMap;
   for (Size i = 0; i < numElements; i++)
   {
     myMap[i] = Temple();
@@ -433,7 +432,7 @@ void demoDefaultAllocatorMap(Size numElements)
 void demoCustomAllocatorList(Size numElements)
 {
   //std::list<Temple, FreeListAllocator_V2<Temple, POOL_SIZE, FreeResourcetable_Heap<POOL_SIZE>>> myList;
-  std::list<Temple, LinkedListAllocator<Temple, POOL_SIZE>> myList;
+  std::list<Temple, LinkedListAllocator<Temple, ALLOCATOR_SIZE>> myList;
   for (Size i = 0; i < numElements; i++)
   {
     myList.push_back(Temple());
@@ -469,9 +468,9 @@ int main()
   std::cout << "Size of Temple object: " << sizeof(Temple) << " bytes" << std::endl;
 
   auto start = Clock::now();
-  //demoCustomAllocatorVector(NUM_ELEMENTS);
+  demoCustomAllocatorVector(NUM_ELEMENTS);
   //demoCustomAllocatorMap(NUM_ELEMENTS);
-  demoCustomAllocatorList(NUM_ELEMENTS);
+  //demoCustomAllocatorList(NUM_ELEMENTS);
   auto end = Clock::now();
 
   std::cout << "Custom allocator performance test completed." << std::endl;
@@ -488,9 +487,9 @@ int main()
   
   // Measure time for inserting elements using default allocator
   start = Clock::now();
-  //demoDefaultAllocatorVector(NUM_ELEMENTS);
+  demoDefaultAllocatorVector(NUM_ELEMENTS);
   //demoDefaultAllocatorMap(NUM_ELEMENTS);
-  demoDefaultAllocatorList(NUM_ELEMENTS);
+  //demoDefaultAllocatorList(NUM_ELEMENTS);
   end = Clock::now();
 
   std::cout << "Default allocator performance test completed." << std::endl;

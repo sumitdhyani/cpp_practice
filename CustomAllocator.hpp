@@ -4,11 +4,13 @@
 #include <tuple>
 #include <optional>
 #include <cstring>
+#include <exception>
+#include <stdexcept>
 
 typedef uint32_t Size;
 
 template <Size size>
-struct FreeResourcetable_V1
+struct FreeResourcetable_Stack
 {
 private:
   struct Node
@@ -23,7 +25,7 @@ public:
   constexpr static const Size Size_max = Size(-1);
   constexpr static const Size bookSize = size * 2;
 
-  FreeResourcetable_V1() : m_firstFreeIdx(0)
+  FreeResourcetable_Stack() : m_firstFreeIdx(0)
   {
     Node &firstFreeNode = m_freeNodes[0];
     Node &lastFreeNode = m_freeNodes[bookSize - 1];
@@ -359,7 +361,7 @@ private:
   Size m_firstFreeIdx;
 };
 
-template<Size size>
+
 struct FreeResourcetable_Heap
 {
   private:
@@ -373,23 +375,22 @@ struct FreeResourcetable_Heap
 
   public:
   constexpr static const Size Size_max = Size(-1);
-  constexpr static const Size bookSize = size * 2;
 
-  FreeResourcetable_Heap() :
-    m_heap(malloc(sizeof(Node) * bookSize + sizeof(Size) * size)),
+  FreeResourcetable_Heap(const Size& size) :
+    m_bookSize(size * 2),
+    m_heap(malloc(sizeof(Node) * m_bookSize + sizeof(Size) * size)),
     m_freeNodes((Node*)m_heap),
-    m_occupiedNodes((Size*)((char*)m_heap + sizeof(Node) * bookSize)),
+    m_occupiedNodes((Size*)((char*)m_heap + sizeof(Node) * m_bookSize)),
     m_firstFreeIdx(0)
   {
-      //memset(m_freeNodes, 0, sizeof(Node) * bookSize);
       Node& firstFreeNode = m_freeNodes[0];
-      Node& lastFreeNode = m_freeNodes[bookSize-1];
+      Node& lastFreeNode = m_freeNodes[m_bookSize-1];
 
       firstFreeNode.m_linkIdx =
       lastFreeNode.m_linkIdx = Size_max;
 
       firstFreeNode.m_size =
-      lastFreeNode.m_size = bookSize;
+      lastFreeNode.m_size = m_bookSize;
   }
 
   ~FreeResourcetable_Heap()
@@ -552,7 +553,7 @@ struct FreeResourcetable_Heap
 
       // If size == end + 1, there is no trailing section,
       // let alone a touching trailing section
-      const bool isJoinedWithNext = (bookSize > end + 1) && (end + 1 == next);
+      const bool isJoinedWithNext = (m_bookSize > end + 1) && (end + 1 == next);
 
       if (isJoinedWithPrev && isJoinedWithNext)
       {
@@ -720,7 +721,8 @@ struct FreeResourcetable_Heap
       }
   }
 
-  void* m_heap;
+  const Size m_bookSize;
+  void *m_heap;
   Node *m_freeNodes;
   Size* m_occupiedNodes;
   Size m_firstFreeIdx;
@@ -908,7 +910,7 @@ private:
 template <class T, Size size>
 struct MemPool_V1
 {
-  FreeResourcetable_V1<size> m_freeResourcetable;
+  FreeResourcetable_Stack<size> m_freeResourcetable;
   T m_data[size];
 
   MemPool_V1() = default;
@@ -989,11 +991,19 @@ private:
 };
 
 
-template <class T, Size size>
+template <class T>
 struct MemPool_Heap
 {
-  MemPool_Heap() : m_data(static_cast<T*>(malloc(sizeof(T) * size)))
-  {}
+  MemPool_Heap(const Size& size) : 
+    m_size(size),
+    m_data(reinterpret_cast<T*>(malloc(sizeof(T) * size))),
+    m_freeResourcetable(size)
+  {
+    if (!m_size)
+    {
+      throw std::runtime_error("Size should be greater than 0");
+    }
+  }
 
   ~MemPool_Heap()
   {
@@ -1011,7 +1021,7 @@ struct MemPool_Heap
 
   bool deallocate(T* ptr)
   {
-    if (ptr < m_data || ptr >= m_data + size)
+    if (ptr < m_data || ptr >= m_data + m_size)
     {
       return false; // Pointer out of bounds
     }
@@ -1026,22 +1036,32 @@ struct MemPool_Heap
   MemPool_Heap& operator=(MemPool_Heap&&) = delete;
 
 private:
-  FreeResourcetable_Heap<size> m_freeResourcetable;
+  const Size m_size;
   T* m_data;
+  FreeResourcetable_Heap m_freeResourcetable;
 };
 
-template <class T, Size size>
+template <class T>
 struct Mempools_Heap
 {
   struct MemPoolNode
   {
     MemPoolNode* m_next;
-    MemPool_Heap<T, size> m_pool;
+    MemPool_Heap<T> m_pool;
 
-    MemPoolNode(MemPoolNode* next) : m_next(next) {}
+    MemPoolNode(const Size &size, MemPoolNode *next) : m_pool(size) , m_next(next)
+    {}
   };
 
-  Mempools_Heap() : m_pools(new MemPoolNode(nullptr)) {}
+  Mempools_Heap(const Size& size) :
+    m_size(size),
+    m_pools(new MemPoolNode(size, nullptr))
+  {
+    if (!m_size)
+    {
+      throw std::runtime_error("Size should be greater than 0");
+    }
+  }
 
   ~Mempools_Heap()
   {
@@ -1072,7 +1092,7 @@ struct Mempools_Heap
     }
 
     // If no pool has space, create a new one
-    MemPoolNode* newNode = new MemPoolNode(m_pools);
+    MemPoolNode* newNode = new MemPoolNode(m_size, m_pools);
     m_pools = newNode;
     return *m_pools->m_pool.allocate(n);
   }
@@ -1091,5 +1111,6 @@ struct Mempools_Heap
     return false; // Pointer not found in any pool
   }
 private:
-  MemPoolNode* m_pools;
+  const Size m_size;
+  MemPoolNode *m_pools;
 };
