@@ -1,41 +1,63 @@
 #include <iostream>
-#include <tuple>
-#include <stack>
 #include <cassert>
 #include "Reuseables.h"
 
 using Node = LinkedListNode<int>;
 using vector = std::vector<int>;
 
-std::stack<Node*> toStack(Node* start)
+int length(Node* start)
 {
-  std::stack<Node*> ret;
-  while (start)
+  int ret = 0;
+  while(start)
   {
-    ret.push(start);
+    ++ret;
     start = start->m_next;
   }
 
   return ret;
 }
 
+Node* jump(Node* start, int len)
+{
+  if (!(len && start)) return start;
+
+  while(start && len--)
+  {
+    start = start->m_next;
+  }
+
+  return start;
+}
+
+
+// Overall idea is to find the nodes in each list from where they are equidistant from
+// the intersecting node(which will be nullptr if they don't intersect), using the difference
+// in length of the lists.
+// The longer list is jumped equal to the length-difference so when iterated, they are bound to
+// become equal eventually, and there where our intersection node is 
 Node* getIntersectionNode(Node* start1, Node* start2)
 {
   if (!(start1 && start2)) return nullptr;
-  else if (start1 == start2) return start1;
 
-  std::stack<Node*> s1(std::move(toStack(start1)));
-  std::stack<Node*> s2(std::move(toStack(start2)));
-  if(s1.top() != s2.top()) return nullptr;
+  int l1 = length(start1);
+  int l2 = length(start2);
 
-  Node* prevCommonNode = nullptr;
-  while(s1.top() == s2.top())
+  int diff = l1 - l2;
+
+  // Bring the heads equidistant from the intersecting
+  // Node(which will be nullptr if they don't intersect)
+  diff > 0? start1 = jump(start1, diff):
+            start2 = jump(start2, -diff);
+
+  // We don't chech for null-ness here as both will become nullptr together
+  // so equality check will take care of that
+  while (start1 != start2)
   {
-    prevCommonNode = s1.top();
-    s1.pop(); s2.pop();
+    start1 = start1->m_next;
+    start2 = start2->m_next;
   }
 
-  return prevCommonNode;
+  return start1;
 }
 
 // Helper: construct two lists that intersect at a given position.

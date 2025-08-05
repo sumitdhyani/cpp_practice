@@ -118,3 +118,28 @@ void printList(LinkedListNode<T>* start, const std::function<void(const T&)>& pr
     start = start->m_next;
   }
 }
+
+template <class T>
+LinkedListNode<T> *createListFromStream(const std::function<T()>& fetch, const int &len)
+{
+  using Node = LinkedListNode<T>;
+
+  if (!len) return nullptr;
+  std::tuple<Node *, Node *> list = {nullptr, nullptr};
+  auto &[start, end] = list;
+  for (int i = 0; i < len; ++i)
+  {
+    Node *node = new Node(fetch(), nullptr);
+    if (!start)
+    {
+      start = end = node;
+    }
+    else
+    {
+      end->m_next = node;
+      end = end->m_next;
+    }
+  }
+  
+  return start;
+}
