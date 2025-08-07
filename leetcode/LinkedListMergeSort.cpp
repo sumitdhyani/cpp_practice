@@ -5,6 +5,10 @@
 
 using Node = LinkedListNode<int>;
 using vector = std::vector<int>;
+using tuple = std::tuple<Node*, Node*>;
+
+// Time Complexity: O(n*lg(n))
+// Space complexity: O(1)
 
 // Both non-null
 void joinLists(Node *left, Node *right)
@@ -19,58 +23,26 @@ void joinLists(Node *left, Node *right)
   prev->m_next = right;
 }
 
-// Both non-null
-// returns next node to be copied from
-Node* copyList(Node* from, Node* to)
-{
-  while (from && to)
-  {
-    to->m_val = from->m_val;
-    from = from->m_next;
-    to = to->m_next;
-  }
-
-  return from;
-}
-
-
 // Both should be non-null
-void mergeLists(Node* l1, Node* l2)
+Node* mergeLists(Node* l1, Node* l2)
 {
-  Node *currL1 = l1;
-  Node *currL2 = l2;
-  Node *resStart = nullptr;
-  Node *resEnd = nullptr;
+  if (!l1) return l2;
+  else if (!l2) return l1;
 
-  while(currL1 && currL2)
+  auto [smaller, larger] = (*l1 <= *l2) ? tuple{l1, l2} : tuple{l2, l1};
+
+  Node *prevSmaller = nullptr;
+  Node *ret = smaller;
+  while (smaller && *smaller <= *larger)
   {
-    Node* smallerNode = currL1->m_val < currL2->m_val? currL1 : currL2;
-    Node *nextNode = new Node(smallerNode->m_val, nullptr);
-
-    !resStart? resStart = resEnd = nextNode :
-               resEnd = resEnd->m_next = nextNode;
-
-    currL1 == smallerNode? currL1 = currL1->m_next:
-                           currL2 = currL2->m_next;
+    prevSmaller = smaller;
+    smaller = smaller->m_next;
   }
 
-  while (currL1)
-  {
-    resEnd = resEnd->m_next = new Node(currL1->m_val, nullptr);
-    currL1 = currL1->m_next;
-  }
+  prevSmaller->m_next = larger;
+  mergeLists(larger, smaller);
 
-  while (currL2)
-  {
-    resEnd = resEnd->m_next = new Node(currL2->m_val, nullptr);
-    currL2 = currL2->m_next;
-  }
-
-  copyList(copyList(resStart, l1), l2);
-  joinLists(l1, l2);
-
-  // Delete the intermediate list
-  deleteLinkedList(resStart);
+  return ret;
 }
 
 // Param should be non-null
@@ -85,7 +57,6 @@ Node* mergeSort(Node* start)
 {
   if (!start || !start->m_next) return start;
 
-
   // Using slow-fast pointer mechaism to find the mid of the list
   Node *slow = start;
   Node *fast = start;
@@ -95,16 +66,13 @@ Node* mergeSort(Node* start)
   } 
 
   // Sort the 2nd half
-  mergeSort(slow->m_next);
+  Node* sortedLeft = mergeSort(slow->m_next);
 
-  // This methoed expects null-terminated lists, so temporarily breaking the list from
-  // between, they will be re-joined in the megeList method, but we have to save the original link
-  // between the 2 fragments as it will be later required in the mergeLists method
-  Node* temp = slow->m_next;
+  // This method expects null-terminated lists, so temporarily breaking the list from
+  // middle before sorting the second-half, they will be re-joined in the megeList method
   slow->m_next = nullptr;
-  mergeSort(start);
-  mergeLists(start, temp);
-  return start;
+  Node* sortedRight = mergeSort(start);
+  return mergeLists(sortedLeft, sortedRight);
 }
 
 int main()

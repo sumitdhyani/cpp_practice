@@ -8,6 +8,11 @@ struct LinkedListNode
   T m_val;
   LinkedListNode *m_next;
 
+  int operator <=>(const LinkedListNode&  other) const
+  {
+    return m_val - other.m_val;
+  }
+
   LinkedListNode(const T &val, LinkedListNode* next) :
     m_val(val),
     m_next(next)
@@ -26,16 +31,14 @@ template <class T>
 std::tuple<LinkedListNode<T>*, LinkedListNode<T>*> createNormalLinkedList(const std::vector<T> &arr)
 {
   using Node = LinkedListNode<T>;
-  if (!arr.size())
-    return {nullptr, nullptr};
+  Node *start = nullptr;
+  Node *end = nullptr;
 
-  Node* start = new Node(arr[0], nullptr);
-  Node* end = start;
-
-  for (int i = 1; i < arr.size(); ++i)
+  for (auto const &val : arr)
   {
-    end->m_next = new Node(arr[i], nullptr);
-    end = end->m_next;
+    Node *node = new Node(val, nullptr);
+    !end? end = start = node :
+          end = end->m_next = node;
   }
 
   return {start, end};
@@ -44,40 +47,43 @@ std::tuple<LinkedListNode<T>*, LinkedListNode<T>*> createNormalLinkedList(const 
 template <class T>
 std::tuple<LinkedListNode<T>*, LinkedListNode<T>*> createCircularLinkedList(const std::vector<T> &arr)
 {
-  if (!arr.size())
-    return {nullptr, nullptr};
-
   auto [start, end] = createNormalLinkedList(arr);
-  end->m_next = start;
+  if(end) end->m_next = start;
   return {start, end};
 }
 
-// For circularly linked list, i don't know where it ends, i will need the number of nodes in that case
 template <class T>
 void deleteLinkedList(LinkedListNode<T>* start, LinkedListNode<T> *end)
 {
-  if (!start)
-    return;
-
   while (start != end)
-  {
-    delete start;
-    start = start->m_next;
-  }
-
-  delete end;
-}
-
-// For circularly linked list, i don't know where it ends, i will need the number of nodes in that case
-template <class T>
-void deleteLinkedList(LinkedListNode<T> *start)
-{
-  while (start)
   {
     auto temp = start->m_next;
     delete start;
     start = temp;
   }
+
+  delete end;
+}
+
+template <class T>
+void deleteLinkedList(LinkedListNode<T>* start)
+{
+  deleteLinkedList(start, (LinkedListNode<T>*)nullptr);
+} 
+
+template <class T>
+void deleteCircularLinkedList(LinkedListNode<T> *start)
+{
+  using Node = LinkedListNode<T>;
+  Node* curr = start? start->m_next : nullptr;
+  while (curr != start)
+  {
+    auto temp = curr->m_next;
+    delete curr;
+    curr = temp;
+  }
+
+  delete start;
 }
 
 // For circularly linked list, i don't know where it ends, i will need the number of nodes in that case
@@ -94,6 +100,7 @@ std::vector<T> createVectorFromList(const LinkedListNode<T> *start, LinkedListNo
   }
 
   res.push_back(end->m_val);
+  return res;
 }
 
 template <class T>
@@ -142,4 +149,37 @@ LinkedListNode<T> *createListFromStream(const std::function<T()>& fetch, const i
   }
   
   return start;
+}
+
+template <class T>
+LinkedListNode<T> *createLInkedListStack(const std::vector<T> &arr)
+{
+  using Node = LinkedListNode<T>;
+
+  Node* start = nullptr;
+  for(auto const& val : arr)
+  {
+    Node* node = new Node(start);
+    start = node;
+  }
+
+  return start;
+}
+
+template <class T>
+std::tuple<LinkedListNode<T> *, LinkedListNode<T> *> createLInkedListQueue(const std::vector<T> &arr)
+{
+  using Node = LinkedListNode<T>;
+
+  Node* start = nullptr;
+  Node* end = nullptr;
+
+  for(auto const& val : arr)
+  {
+    !end? start = end = new Node(val, nullptr) :
+          end = end->m_next = new Node(val, nullptr);
+          
+  }
+
+  return {start, end};
 }
