@@ -10,20 +10,8 @@ using tuple = std::tuple<Node*, Node*>;
 // Time Complexity: O(n*lg(n))
 // Space complexity: O(1)
 
-// Both non-null
-void joinLists(Node *left, Node *right)
-{
-  Node* prev = nullptr;
-  while (left)
-  {
-    prev = left;
-    left = left->m_next;
-  }
 
-  prev->m_next = right;
-}
-
-// Both should be non-null
+// Does in-place merging of sorted lists
 Node* mergeLists(Node* l1, Node* l2)
 {
   if (!l1) return l2;
@@ -31,6 +19,9 @@ Node* mergeLists(Node* l1, Node* l2)
 
   auto [smaller, larger] = (*l1 <= *l2) ? tuple{l1, l2} : tuple{l2, l1};
 
+  // After the while loop, *smaller will be > larger or will be null
+  // We'd need to keep track of last non-null node that was <= *larger
+  // prevSmaller will play that role
   Node *prevSmaller = nullptr;
   Node *ret = smaller;
   while (smaller && *smaller <= *larger)
@@ -40,7 +31,7 @@ Node* mergeLists(Node* l1, Node* l2)
   }
 
   prevSmaller->m_next = larger;
-  mergeLists(larger, smaller);
+  mergeLists(smaller, larger);
 
   return ret;
 }
@@ -69,7 +60,7 @@ Node* mergeSort(Node* start)
   Node* sortedLeft = mergeSort(slow->m_next);
 
   // This method expects null-terminated lists, so temporarily breaking the list from
-  // middle before sorting the second-half, they will be re-joined in the megeList method
+  // middle before sorting the 1st half, they will be re-joined in the megeLists method
   slow->m_next = nullptr;
   Node* sortedRight = mergeSort(start);
   return mergeLists(sortedLeft, sortedRight);
@@ -79,29 +70,29 @@ int main()
 {
   std::function<void(const int&)> printer = [](const int& val) { std::cout << val << " "; };
 
-  Node* sorted = mergeSort(std::get<0>(createNormalLinkedList(vector{1})));
+  Node* sorted = mergeSort(createSinglyLinkedList(vector{1}));
   assert((createVectorFromList(sorted) == vector{1}));
   deleteLinkedList(sorted);
 
-  sorted =  mergeSort(std::get<0>(createNormalLinkedList(vector{1,2})));
+  sorted =  mergeSort(createSinglyLinkedList(vector{1,2}));
   assert((createVectorFromList(sorted) == vector{1,2}));
   deleteLinkedList(sorted);
 
-  sorted = mergeSort(std::get<0>(createNormalLinkedList(vector{2,1})));
-  assert((createVectorFromList(sorted) == vector{1,2}));
+  sorted = mergeSort(createSinglyLinkedList(vector{2, 1}));
+  assert((createVectorFromList(sorted) == vector{1, 2}));
   deleteLinkedList(sorted);
 
-  sorted = mergeSort(std::get<0>(createNormalLinkedList(vector{})));
+  sorted = mergeSort(createSinglyLinkedList(vector{}));
   assert((createVectorFromList(sorted) == vector{}));
   deleteLinkedList(sorted);
 
-  sorted = mergeSort(std::get<0>(createNormalLinkedList(vector{5,4,3,2,1})));
+  sorted = mergeSort(createSinglyLinkedList(vector{5,4,3,2,1}));
   assert((createVectorFromList(sorted) == vector{1,2,3,4,5}));
   deleteLinkedList(sorted);
 
-  sorted = mergeSort(std::get<0>(createNormalLinkedList(vector{1,2,3,5,4})));
+  sorted = mergeSort(createSinglyLinkedList(vector{1,2,3,5,4}));
   assert((createVectorFromList(sorted) == vector{1,2,3,4,5}));
   deleteLinkedList(sorted);
-
+  
   return 0;
 }

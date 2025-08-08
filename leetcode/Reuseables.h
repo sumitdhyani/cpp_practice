@@ -27,8 +27,16 @@ LinkedListNode<T> *jump(LinkedListNode<T>* node)
   return node;
 }
 
+// Returns only the start pointer
 template <class T>
-std::tuple<LinkedListNode<T>*, LinkedListNode<T>*> createNormalLinkedList(const std::vector<T> &arr)
+LinkedListNode<T>* createSinglyLinkedList(const std::vector<T> &arr)
+{
+  return std::get<0>(createNormalLinkedList(arr));
+}
+
+// Same as Returns only the start pointer
+template <class T>
+std::tuple<LinkedListNode<T> *, LinkedListNode<T> *> createNormalLinkedList(const std::vector<T> &arr)
 {
   using Node = LinkedListNode<T>;
   Node *start = nullptr;
