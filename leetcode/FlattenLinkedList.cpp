@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
 #include <vector>
+#include <stack>
 #include <tuple>
 
 using intVector = std::vector<int>;
@@ -27,13 +28,6 @@ struct Node
 };
 
 using NodeVector = std::vector<Node*>;
-
-// Utility function to set the prev and next simultaneously
-void setLink(Node* prev, Node* next)
-{
-  if (prev) prev->next = next;
-  if (next) next->prev = prev;
-}
 
 Node* createListFromVector(const intVector& nodes)
 {
@@ -72,31 +66,51 @@ intVector createVectorFromList(const Node *start)
   return res;
 }
 
-// Flatten and return the end node of the result
-// Requires because the next of end of result will need to be joined with the head's current next
-Node *flattenCore(Node *head)
+// Utility function to set the prev and next simultaneously, to
+// avoid repeatedly assigning next and prev
+void setLink(Node *prev, Node *next)
 {
+  if (prev) prev->next = next;
+  if (next) next->prev = prev;
+}
+
+// Flatten and return the end node of the result
+// Required because the core idea is to implant the flattenned child between the
+// head and its next pointer, for that we need the beginning of the flattenned child
+// we already have the beginning, so we return end
+Node *flattenAndReturnEnd(Node *head)
+{
+
+  // If head is a terminal or a leaf node, return head, no work to do
   if (!head || !(head->child || head->next)) return head;
 
-  if (auto formerNext = head->next; head->child)
+  // First flatten the child, if exists, and then later
+  // implant it between the head and former next, if present
+  if (head->child)
   {
-    auto flattennedChild = flattenCore(head->child);
+    auto formerNext = head->next;
+    auto flattennedChild = flattenAndReturnEnd(head->child);
+
+    // ==== Process of implanting the flattenned chils between head and its current next ====
     setLink(head, head->child);
     setLink(flattennedChild, formerNext);
     head->child = nullptr;
+    // ======================================================================================
     
-    return formerNext ? flattenCore(formerNext) : flattennedChild;
+    // If the former next is non-null, then flatten it too
+    return formerNext ? flattenAndReturnEnd(formerNext) : flattennedChild;
   }
+  // If child is null just return the flattening of the next pointer
   else
   {
-    return flattenCore(head->next);
+    return flattenAndReturnEnd(head->next);
   }
 }
 
 Node* flatten(Node* start)
 {
-  Node *res = flattenCore(start);
-  // Go to the beginning of the list, as the core also reeturns the end
+  Node *res = flattenAndReturnEnd(start);
+  // Go to the beginning of the list, as the function above returns the end of flattenned list
   while(res && res->prev)
   {
     res = res->prev;
