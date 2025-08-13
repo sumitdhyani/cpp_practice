@@ -19,20 +19,15 @@ struct LinkedListNode
   {}
 };
 
+
+// Returns nullptr if nullptr is encountered before 'len' steps
 template <class T>
-LinkedListNode<T> *jump(LinkedListNode<T>* node)
+LinkedListNode<T> *jump(LinkedListNode<T>* node, int len)
 {
-  node = node ? node->m_next : node;
-  node = node ? node->m_next : node;
+  while(node && len--) node = node->m_next;
   return node;
 }
 
-// Returns only the start pointer
-template <class T>
-LinkedListNode<T>* createSinglyLinkedList(const std::vector<T> &arr)
-{
-  return std::get<0>(createNormalLinkedList(arr));
-}
 
 // Same as Returns only the start pointer
 template <class T>
@@ -52,6 +47,13 @@ std::tuple<LinkedListNode<T> *, LinkedListNode<T> *> createNormalLinkedList(cons
   return {start, end};
 }
 
+// Returns only the start pointer
+template <class T>
+LinkedListNode<T> *createSinglyLinkedList(const std::vector<T> &arr)
+{
+  return std::get<0>(createNormalLinkedList(arr));
+}
+
 template <class T>
 std::tuple<LinkedListNode<T>*, LinkedListNode<T>*> createCircularLinkedList(const std::vector<T> &arr)
 {
@@ -60,9 +62,13 @@ std::tuple<LinkedListNode<T>*, LinkedListNode<T>*> createCircularLinkedList(cons
   return {start, end};
 }
 
+// Delete start to end and return node- m_next if existed, otherwise nullptr
+// Both params should be not-null
 template <class T>
-void deleteLinkedList(LinkedListNode<T>* start, LinkedListNode<T> *end)
+LinkedListNode<T> *deleteLinkedList(LinkedListNode<T> *start, LinkedListNode<T> *end)
 {
+  using Node = LinkedListNode<T>;
+  
   while (start != end)
   {
     auto temp = start->m_next;
@@ -70,9 +76,12 @@ void deleteLinkedList(LinkedListNode<T>* start, LinkedListNode<T> *end)
     start = temp;
   }
 
+  Node* ret = jump(end, 1);
   delete end;
+  return ret;
 }
 
+// Expexts a singly linked list, deletes to the end
 template <class T>
 void deleteLinkedList(LinkedListNode<T>* start)
 {
@@ -94,7 +103,9 @@ void deleteCircularLinkedList(LinkedListNode<T> *start)
   delete start;
 }
 
-// For circularly linked list, i don't know where it ends, i will need the number of nodes in that case
+// For circularly linked list, i don't know where it ends
+// Also can be used when the operation is to be performed on a s-b-section of the list
+// both sart and end should be non-null
 template <class T>
 std::vector<T> createVectorFromList(const LinkedListNode<T> *start, LinkedListNode<T> *end)
 {

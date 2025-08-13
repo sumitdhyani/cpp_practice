@@ -4,7 +4,7 @@
 #include "Reuseables.h"
 
 using Node = LinkedListNode<int>;
-using vector = std::vector<int>;
+using KeyValVector = std::vector<int>;
 using tuple = std::tuple<Node*, Node*>;
 
 // Time Complexity: O(n*lg(n))
@@ -36,14 +36,6 @@ Node* mergeLists(Node* l1, Node* l2)
   return ret;
 }
 
-// Param should be non-null
-Node* jump(Node* start, int len)
-{
-  while(start && len--) start = start->m_next;
-  return start;
-}
-
-
 Node* mergeSort(Node* start)
 {
   if (!start || !start->m_next) return start;
@@ -68,8 +60,7 @@ Node* mergeSort(Node* start)
 
 int main()
 {
-  std::function<void(const int&)> printer = [](const int& val) { std::cout << val << " "; };
-
+  using vector = std::vector<int>;
   Node* sorted = mergeSort(createSinglyLinkedList(vector{1}));
   assert((createVectorFromList(sorted) == vector{1}));
   deleteLinkedList(sorted);
