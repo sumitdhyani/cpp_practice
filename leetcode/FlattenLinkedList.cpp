@@ -2,10 +2,10 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <queue>
 #include <tuple>
 
 using intVector = std::vector<int>;
-
 struct Node
 {
   int val;
@@ -27,7 +27,9 @@ struct Node
   }
 };
 
-using NodeVector = std::vector<Node*>;
+using NodeVector = std::vector<Node *>;
+using NodeStack = std::stack<Node *>;
+using NodeQueue = std::queue<Node *>;
 
 Node* createListFromVector(const intVector& nodes)
 {
@@ -66,6 +68,11 @@ intVector createVectorFromList(const Node *start)
   return res;
 }
 
+bool isLeafNode(Node* node)
+{
+  return !(node->child || node->next);
+}
+
 // Utility function to set the prev and next simultaneously, to
 // avoid repeatedly assigning next and prev
 void setLink(Node *prev, Node *next)
@@ -74,49 +81,54 @@ void setLink(Node *prev, Node *next)
   if (next) next->prev = prev;
 }
 
-// Flatten and return the end node of the result
-// Required because the core idea is to implant the flattenned child between the
-// head and its next pointer, for that we need the beginning of the flattenned child
-// we already have the beginning, so we return end
-Node *flattenAndReturnEnd(Node *head)
+// Basic idea:
+// We have a queue and a stack
+// in the beginning the queue has just the hedad and the stack is empty
+// Queue's front is always to be element whose next pointer is to be set
+// Stack's top is the element which is to be set as the next pointer of element in the queue
+// While traversing the queue, when a node is encountered that has a child, its 'next' is set as its child
+// but before that, it's former next is pushed to the stack as it will be the 'next' of some other node,
+// also the 'child' is pushed to the queue as it needs to get its new chils now
+// A stack has been used for the above mentioned orphanned nodes because the last orphanned node will be the
+// first to get a parent later, while the queue is being traversed
+Node* flatten(Node *head)
 {
-
   // If head is a terminal or a leaf node, return head, no work to do
-  if (!head || !(head->child || head->next)) return head;
+  if (!head || isLeafNode(head)) return head;
 
-  // First flatten the child, if exists, and then later
-  // implant it between the head and former next, if present
-  if (head->child)
+  NodeQueue parents; parents.push(head);
+  NodeStack orphans;
+
+  while(!parents.empty())
   {
-    auto formerNext = head->next;
-    auto flattennedChild = flattenAndReturnEnd(head->child);
+    auto front = parents.front();
+    if (auto child = front->child; child)
+    {
+      front->next? orphans.push(front->next) : void();
+      setLink(front, child);
+      parents.push(child);
+    }
+    else if (isLeafNode(front))
+    {
+      // Only if there is an orphan do we assign this leaf node as its parent
+      if (!orphans.empty())
+      {
+        setLink(front, orphans.top());
+        parents.push(orphans.top());
+        orphans.pop();
+      }
+    }
+    else
+    {
+      parents.push(front->next);
+    }
 
-    // ==== Process of implanting the flattenned chils between head and its current next ====
-    setLink(head, head->child);
-    setLink(flattennedChild, formerNext);
-    head->child = nullptr;
-    // ======================================================================================
-    
-    // If the former next is non-null, then flatten it too
-    return formerNext ? flattenAndReturnEnd(formerNext) : flattennedChild;
-  }
-  // If child is null just return the flattening of the next pointer
-  else
-  {
-    return flattenAndReturnEnd(head->next);
-  }
-}
-
-Node* flatten(Node* start)
-{
-  Node *res = flattenAndReturnEnd(start);
-  // Go to the beginning of the list, as the function above returns the end of flattenned list
-  while(res && res->prev)
-  {
-    res = res->prev;
+    // The front has no use now, will be popped, regardless
+    // which condition was encountered
+    parents.pop();
   }
 
-  return res;
+  return head;
 }
 
 void deleteList(Node* start)
