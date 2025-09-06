@@ -59,4 +59,6 @@ int main()
   start = std::get<0>(createCircularLinkedList(arr));
   assert(!isCyclePresent(start));
   deleteLinkedList(start);
+
+  std::cout << "All tests passed!" << std::endl;
 }

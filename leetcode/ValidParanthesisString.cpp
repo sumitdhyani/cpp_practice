@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iostream>
 #include <string>
 #include <stdint.h>
 
@@ -36,5 +37,7 @@ int main()
   assert(isValidParenthesisEnclosedString("()"));
   assert(isValidParenthesisEnclosedString("(())"));
   assert(!isValidParenthesisEnclosedString("(())()"));
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

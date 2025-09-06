@@ -19,7 +19,7 @@ vector maxSlidingWindow(const vector& nums, int k)
   // First element will be the greatest, so that the begin() will yield the largest in the window
   // Key: the element, Value: Frequency
   // This key-value dynamics will allow storage of duplicate elements.
-  // Also there is one more purpose to haing frequency as thevalue:
+  // Also there is one more purpose to having frequency as the value:
   // When the we move to the next window, and remove the 1st element of the window, then
   // having the frequency will let us know if we ought to remove the element or retain it in this map
   // For example if the removed element had a frequency 1, then it occurred in the window once and thus this

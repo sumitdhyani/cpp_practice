@@ -62,5 +62,7 @@ int minimumLength(string s)
 int main()
 {
   assert(minimumLength("bacbcbb") == 5);
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

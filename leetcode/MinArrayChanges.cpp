@@ -103,6 +103,8 @@ int main()
   vec = {0, 1, 2, 3, 3, 6, 5, 4};
   assert(minChanges(vec, 6) == 2);
 
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }
 //      1 3

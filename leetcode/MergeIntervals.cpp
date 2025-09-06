@@ -50,5 +50,7 @@ int main()
   res = {{1, 9}};
   assert(mergeIntervals(intervals) == res);
 
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

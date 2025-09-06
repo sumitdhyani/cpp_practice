@@ -28,6 +28,7 @@
 // 1 <= numRows <= 1000
 
 #include <cassert>
+#include <iostream>
 #include <vector>
 #include <string>
 using namespace std;
@@ -62,5 +63,7 @@ int main()
   string s = "PAYPALISHIRING";
   assert(convert(s, 3) == "PAHNAPLSIIGYIR");
   assert(convert(s, 4) == "PINALSIGYAHRPI");
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

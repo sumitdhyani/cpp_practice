@@ -5,7 +5,7 @@
 #include <queue>
 #include <tuple>
 
-using KeyValVector = std::vector<int>;
+using vector = std::vector<int>;
 struct Node
 {
   int val;
@@ -31,7 +31,7 @@ using NodeVector = std::vector<Node *>;
 using NodeStack = std::stack<Node *>;
 using NodeQueue = std::queue<Node *>;
 
-Node* createListFromVector(const KeyValVector& nodes)
+Node* createListFromVector(const vector& nodes)
 {
   Node *start = nullptr;
   Node *end = nullptr;
@@ -56,9 +56,9 @@ Node* createChildrenForList(Node* start, const NodeVector& branches)
   return start;
 }
 
-KeyValVector createVectorFromList(const Node *start)
+vector createVectorFromList(const Node *start)
 {
-  KeyValVector res;
+  vector res;
   while (start)
   {
     res.push_back(start->val);
@@ -171,5 +171,7 @@ int main()
   assert((flattenned == intVector{1,2}));
   deleteList(main);
 
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

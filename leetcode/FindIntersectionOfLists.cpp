@@ -66,32 +66,7 @@ int main()
   std::cout << std::endl;
   printList<int>(s2, [](const int& n){ std::cout << n << " ";});
   std::cout << std::endl;
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
+  return 0;
 }
-
-// int main()
-// {
-//   // Unit tests using assert and hardcoded vectors
-
-//   int numTestCases;
-//   std::cin >> numTestCases;
-
-//   // Function to fetch an integer from console
-//   std::function<int()> fetch = []()
-//   {
-//     int val;
-//     std::cin >> val;
-//     return val;
-//   };
-
-//   while (numTestCases--)
-//   {
-//     int len1, len2;
-//     std::cin >> len1 >> len2;
-
-//     Node *start1 = createListFromStream(fetch, len1);
-//     Node *start2 = createListFromStream(fetch, len2);
-//     std::cout << listsIntersect(start1, start2) << std::endl;
-//   }
-
-//   return 0;
-// }

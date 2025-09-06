@@ -1,6 +1,6 @@
 #include <cassert>
-#include <tuple>
 #include <iostream>
+#include <tuple>
 #include "Reuseables.h"
 
 using Node = LinkedListNode<int>;
@@ -9,7 +9,6 @@ using tuple = std::tuple<Node*, Node*>;
 
 // Time Complexity: O(n*lg(n))
 // Space complexity: O(1)
-
 
 // Does in-place merging of sorted lists
 Node* mergeLists(Node* l1, Node* l2)
@@ -84,6 +83,8 @@ int main()
   sorted = mergeSort(createSinglyLinkedList(vector{1,2,3,5,4}));
   assert((createVectorFromList(sorted) == vector{1,2,3,4,5}));
   deleteLinkedList(sorted);
-  
+
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

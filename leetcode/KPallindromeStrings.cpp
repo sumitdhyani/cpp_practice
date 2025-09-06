@@ -21,8 +21,9 @@
 //                                               Constraints :
 
 //                                               1 <= s.length <= 105 s consists of lowercase English letters.1 <= k <= 105
-#include <string>
 #include <cassert>
+#include <iostream>
+#include <string>
 using namespace std;
 
 bool canConstruct(string s, int k)
@@ -54,5 +55,7 @@ int main()
   assert(canConstruct("annabelle", 2));
   assert(!canConstruct("leetcode", 3));
   assert(canConstruct("true", 4));
+  /////////////////////////////////////////////////////////////////
+  std::cout << "All tests passed!" << std::endl;
   return 0;
 }

@@ -55,5 +55,7 @@ int countPrefixSuffixPairs(vector<string> &words)
     //std::cout << countPrefixSuffixPairs(input) << std::endl;
     assert(countPrefixSuffixPairs(input) == 3);
 
+    /////////////////////////////////////////////////////////////////
+    std::cout << "All tests passed!" << std::endl;
     return 0;
   }
